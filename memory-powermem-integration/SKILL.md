@@ -7,6 +7,7 @@ description: |
   2. 每天凌晨 1:00 自动把 MEMORY.md / USER.md 沉淀到 PowerMem（"做梦"巩固记忆）
   3. AI 自动从文件内容提取10个标签（时间、主题、关键词、项目、动作、状态、优先级）
   4. 幂等写入（依赖 pmem 内部智能去重，跳过手动 content hash 检查）
+  5. 每周日 1:00 自动备份数据库到 /root/memory/（保留4周）
 triggers:
   - "记忆检索"
   - "搜一下之前"
@@ -51,20 +52,17 @@ config:
 2. **每天凌晨 1:00 记忆沉淀**：Cron Job 触发后，把 `/root/.hermes/memories/` 下文件沉淀到 PowerMem（"做梦"巩固）
 
 ## 文件结构
-
 ```
 memory-powermem-integration/
 ├── SKILL.md                              ← 主技能定义
-├── README_FLOW.md                        ← 完整流程详解
+├── README_FLOW.md                        ← 完整流程详解（待补充）
 ├── scripts/
-│   ├── tag_extractor.py                  ← AI 自动提取10个标签（规则兜底）
-│   ├── memory_pmem_direct.py             ← ⭐ 主力写入脚本（直接写 SQLite，绕过卡死的 pmem memory add）
-│   └── memory_sync.py                    ← Cron Job 沉淀脚本（调用 memory_pmem_direct.py）
-├── config/
-│   └── tag_config.yaml                   ← 标签定义与提取规则
+│   ├── backup_powermem.sh                ← 记忆备份脚本（每周日1点执行）
+│   ├── memory_sync.py                    ← 记忆沉淀脚本（Cron Job 调用）
+│   ├── tag_extractor.py                  ← 标签提取规则
+│   └── content_hash.py                   ← 内容哈希（幂等用）
 └── references/
-    ├── pmem_cli_commands.md              ← ⭐ CLI 命令参考（官方文档，中文）
-    ├── pmem_add_behavior.md              ← pmem add 超时问题记录
+    ├── pmem_add_behavior.md              ← pmem add 超时行为记录
     └── memory_schema.md                  ← PowerMem SQLite 表结构
 ```
 
@@ -148,11 +146,11 @@ pmem memory add "[内容摘要]" --metadata '{"tag1_time":"","tag2_topicA":"",..
 
 ### 触发沉淀
 
-当周五 Cron Job 执行或用户手动触发"记忆沉淀"时：
-1. AI 调用 `scripts/memory_sync.sh`
-2. 脚本检查文件修改时间
-3. AI 分析文件内容提取标签
-4. 执行幂等写入
+当 Cron Job 执行或用户手动触发"记忆沉淀"时：
+1. AI 读取 `/root/.hermes/memories/MEMORY.md` 和 `USER.md` 内容
+2. 用 Python `os.path.getmtime()` 检查文件修改时间（避免 shell `stat` 触发 security scan）
+3. AI 分析文件内容提取10个标签
+4. 调用 `pmem memory add` 执行幂等写入（见下方命令示例）
 
 ## 依赖
 
@@ -162,16 +160,95 @@ pmem memory add "[内容摘要]" --metadata '{"tag1_time":"","tag2_topicA":"",..
 
 ## 已知限制
 
-- `pmem memory add` **极慢**（35~90s），建议用 `scripts/memory_pmem_direct.py` 直接写 SQLite，绕过 CLI
 - Shell `stat` 命令会触发 security scan，文件修改时间检查改用 Python `os.path.getmtime()`
-- `--no-infer` 跳过推理可将耗时从 35~90s 降至 3~6s，但直接写 SQLite 更快更稳
 - `--scope` 和 `--memory-type` 参数在 `memory add` 子命令中**不存在**，会报错
+- `pmem memory add` 带 `--no-infer` 写入耗时约 3~6s（可接受），比等待 LLM 推理快得多
+- **weixin 通知渠道未就绪**：沉淀完成后无法自动推送通知给 Tomson（channel_directory.json 中 weixin 账号存在但无发送插件）
+- Cron Job 以 `default` profile 运行，无法直接调用 weixin 渠道发送通知，报告仅写入日志
+
+## ⚠️ Ollama Embedding Base URL 配置注意
+
+PowerMem 的 Ollama Embedding provider **只认以下两个环境变量名**：
+
+| 变量名 | 用途 |
+|--------|------|
+| `ollama_base_url` | 直接读取 |
+| `OLLAMA_EMBEDDING_BASE_URL` | Alias 别名 |
+
+**常见误区**：`OPEN_EMBEDDING_BASE_URL`（火山引擎等国产平台常用写法）PowerMem **完全不识别**，会被静默忽略，导致 ollama_base_url 保持为空，Ollama SDK 默认连接 `http://127.0.0.1:11434`（即本机 ollama）。
+
+**验证方法**：
+1. 运行 `pmem config test`，确认三项全 PASS
+2. 停本机 ollama：`systemctl stop ollama`
+3. 显式传入变量测试：`OLLAMA_EMBEDDING_BASE_URL=http://目标地址:11434 pmem config test`
+4. 若停本机后仍然 SUCCESS，说明连接的是远程
+
+**正确写法（在 `/root/.env` 中）**：
+```bash
+OLLAMA_EMBEDDING_BASE_URL=http://10.229.190.87:11434
+```
+
+> ⚠️ **关键：pmem 读取的是 `/root/.env`，不是 `~/.hermes/.env`**。PowerMem 默认使用 pydantic-settings 的 `env_file = "/root/.env"`（写死在源码里），不会读 `~/.hermes/.env`。两个文件可能同时存在，但只有 `/root/.env` 生效。
+>
+> **根因总结**：PowerMem 的 `OllamaEmbeddingConfig` 只识别 `ollama_base_url` 和 `OLLAMA_EMBEDDING_BASE_URL`。配置文件中写的 `OPEN_EMBEDDING_BASE_URL` 是 OpenAI provider 的变量名，ollama provider 完全不认识，直接忽略 → ollama_base_url 为空 → SDK 默认连 localhost:11434。
+
+**修复操作（2025-05-31）**：
+1. 备份：`cp /root/.env /root/.env.bak_20250531_1630`
+2. 把 `OPEN_EMBEDDING_BASE_URL=...` 注释掉
+3. 新增：`OLLAMA_EMBEDDING_BASE_URL=http://10.229.190.87:11434`
+4. 验证：停本机 ollama 后 `pmem config test` 仍通过
+
+## 备份机制
+
+### 数据库结构
+```
+memories (
+  id          INTEGER PRIMARY KEY
+  vector      TEXT     -- JSON string (embedding vector)
+  payload     TEXT     -- JSON string (完整记忆内容)
+  created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+```
+
+### 备份内容
+- `/root/memory/powermem_YYYYMMDD_HHMMSS.db` — 数据库完整备份
+- `/root/memory/memories_YYYYMMDD_HHMMSS.json` — 记忆 JSON 导出
+
+### 读取备份
+```bash
+# 查看记忆列表
+sqlite3 /root/memory/powermem_YYYYMMDD_HHMMSS.db "SELECT id, substr(payload, 1, 50) FROM memories;"
+
+# 格式化 JSON 导出
+sqlite3 -json /root/memory/powermem_YYYYMMDD_HHMMSS.db "SELECT id, payload FROM memories;"
+
+# 完整可读内容（Python）
+python3 -c "
+import sqlite3, json
+conn = sqlite3.connect('/root/memory/powermem_YYYYMMDD_HHMMSS.db')
+for id, payload in conn.execute('SELECT id, payload FROM memories'):
+    p = json.loads(payload)
+    print(f'ID: {id}')
+    print(f'内容: {p[\"data\"]}')
+    print(f'标签: {p[\"metadata\"]}')
+    print('---')
+"
+```
+
+
+### Cron Job
+- **Schedule**: `0 1 * * 0`（每周日 1:00）
+- **Script**: `scripts/backup_powermem.sh`
+- **Retention**: 4 周（自动删除旧备份）
+
+### 手动触发
+```bash
+bash /root/.hermes/skills/devops/memory-powermem-integration/scripts/backup_powermem.sh
+```
+
+> ⚠️ **注意**：修改.env 配置文件前或初始化记忆数据库前，需要触发备份工具。
 
 ## 链接文件
 
-- `references/pmem_cli_commands.md` — CLI 命令参考
-- `references/pmem_add_behavior.md` — pmem add 超时行为记录
-- `references/memory_schema.md` — PowerMem SQLite 表结构
-- `scripts/memory_pmem_direct.py` — ⭐ 主力写入脚本（直接写 SQLite）
-- `scripts/memory_sync.py` — Cron Job 沉淀脚本
-- `scripts/tag_extractor.py` — 标签提取规则兜底
+- `references/pmem_troubleshooting.md` — 故障排查（502错误、Ollama未启动、embedding base URL变量名陷阱）
+- `references/memory_schema.md` — PowerMem SQLite 表结构（待补充）
