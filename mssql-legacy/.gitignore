@@ -1,0 +1,36 @@
+# Local secrets
+.env
+*.env
+.env.*
+!.env.example
+
+# Runtime output
+logs/
+reports/
+*.log
+
+# SQL Server backup files
+*.bak
+*.trn
+*.dif
+*.sqlbak
+
+# Certificates and private keys
+*.pem
+*.key
+*.pfx
+*.p12
+*.crt
+*.cer
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Python / shell caches
+__pycache__/
+*.pyc
