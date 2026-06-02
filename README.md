@@ -1,178 +1,212 @@
-# memory-powermem-integration
+# tomson_skills
 
-**Hermes Agent 记忆集成工具** — 将 AI 会话记忆自动沉淀至 PowerMem，实现长期记忆存储、语义检索与自动备份。
+Collection of AI Agent Skills and database automation tools for personal devops and LLM memory management workflows.
 
-## 📌 项目简介
+## 📂 Subprojects
 
-本项目是一款 **AI 记忆集成与自动化运维工具**，旨在解决 AI Agent 会话记忆中"短期易失、难以检索"的核心痛点。通过与 PowerMem（LLM 记忆数据库）的深度集成，实现会话记忆的自动沉淀、语义搜索与持久化存储，大幅提升 AI 对历史上下文的学习和检索能力。
-
-适用于个人 AI 助手、多 Agent 协作系统、企业知识管理等多种场景，支持定时自动执行、幂等写入、数据库备份等生产级特性。
-
-## ✨ 核心特性
-
-- **按需记忆检索**：AI 在需要时主动搜索 PowerMem 历史记忆，无需定时轮询，避免干扰正常对话流程
-- **自动记忆沉淀**：每天凌晨 1:00 自动将 MEMORY.md / USER.md 沉淀至 PowerMem（"做梦"巩固记忆机制）
-- **智能 10 标签系统**：每条记忆自动提取时间、主题、关键词、项目、动作、状态、优先级等 10 个维度标签
-- **幂等写入机制**：依赖 PowerMem 内部智能去重，无需手动 content hash 检查，写入前自动相似度检测
-- **自动数据库备份**：每周日 1:00 自动备份 PowerMem 数据库至 `/root/memory/`，保留 4 周历史版本
-- **Ollama Embedding 优化**：解决 Ollama Embedding Base URL 环境变量名陷阱，连接远程 Embedding 服务
-- **生产级稳定性**：跳过 LLM 推理（`--no-infer`），写入耗时从 35~90s 降至 3~6s
-
-## 📋 环境依赖
-
-- 操作系统：Linux（CentOS / Ubuntu / Debian）
-- 运行环境：Python 3.10+
-- 依赖工具：Git, PowerMem CLI (`/root/miniconda3/bin/pmem`)
-- 可选：Cron（用于定时任务自动执行）
-
-## 🚀 快速安装
-
-### 一：直接使用
-
-```bash
-# 克隆到 Hermes Agent skills 目录（已集成到 Hermes 工作流）
-git clone https://github.com/tomson5566/tomson_skills.git \
-  ~/.hermes/skills/devops
-```
-
-## 💡 快速使用
-
-### 1. 配置环境变量
-
-确保 `/root/.env` 中包含正确的 Ollama Embedding 配置：
-
-```bash
-# ⚠️ 注意：PowerMem 只识别这两个变量名
-OLLAMA_EMBEDDING_BASE_URL=http://目标地址:11434
-# 或
-ollama_base_url=http://目标地址:11434
-
-# 不要用这个（PowerMem 不识别）：
-# OPEN_EMBEDDING_BASE_URL=...  # ❌ 会导致连接默认 localhost:11434
-```
-
-.env_temp文件
-
-```shell
-# --- PowerMem + 火山引擎 Coding Plan  ---
-# 开发测试推荐使用 SQLite，纯本地无需额外数据库服务
-DATABASE_PROVIDER=sqlite
-SQLITE_PATH=./data/powermem_dev.db
-SQLITE_ENABLE_WAL=true
-SQLITE_TIMEOUT=30
-
-# Enable sparse vector
-SPARSE_VECTOR_ENABLE=true
-
-# LLM：火山引擎 Coding Plan（ark-code-latest）
-LLM_PROVIDER=openai
-LLM_API_KEY=  # 换成你的 Coding Plan Key
-LLM_MODEL=ark-code-latest
-LLM_TEMPERATURE=0.7
-LLM_MAX_TOKENS=8192
-# Coding Plan 专用端点
-OPENAI_LLM_BASE_URL=https://ark.cn-beijing.volces.com/api/coding/v3
-LLM_TOP_P=1.0
-
-
-# Embedding：远程 Ollama（bge-m3:latest）用户要求测试远程欧拉玛
-EMBEDDING_PROVIDER=ollama
-EMBEDDING_API_KEY=ollama
-EMBEDDING_MODEL=embeddinggemma:latest
-OLLAMA_EMBEDDING_BASE_URL=http://10.229.190.87:11434
-EMBEDDING_DIMS=1024
-OCEANBASE_EMBEDDING_MODEL_DIMS=1024
-```
-
-### 2. 验证 PowerMem 配置
-
-```bash
-# 停掉本机 ollama（避免干扰）
-systemctl stop ollama
-
-# 验证远程连接是否正常
-pmem config test
-# 期望输出：三项全 PASS
-(base) root@raspberrypi:~# systemctl stop ollama.service 
-(base) root@raspberrypi:~# pmem config test
-[INFO] Testing configuration connectivity...
-[INFO] Testing database connection...
-[SUCCESS] Database: Connected
-[INFO] Testing LLM connection...
-[SUCCESS] LLM: Connected
-[INFO] Testing embedder connection...
-[SUCCESS] Embedder: Connected (dims=768)
-
-Results: 3 passed, 0 failed, 0 skipped
-```
-
-### 3. 手动触发记忆检索
-
-```bash
-# 当用户说 "搜一下之前关于部署的记忆" 时
-pmem memory search "部署"
-
-# 查看返回的标签列表，决定是否获取完整内容
-pmem memory get <id>
-```
-
-### 4. 手动触发记忆沉淀
-
-```bash
-# Cron Job 自动执行，或手动调用
-python3 scripts/memory_sync.py
-
-# 或直接调用 pmem（推荐带 --no-infer）
-pmem memory add "你的记忆内容摘要" \
-  --metadata '{"tag1_time":"2025-05-24","tag2_topicA":"服务器",...}' \
-  --no-infer
-```
-
-### 5. 手动触发数据库备份
-
-```bash
-bash scripts/backup_powermem.sh
-```
-
-## 📚 详细文档
-
-- [完整流程详解](./README_FLOW.md) — 深入理解记忆沉淀的完整数据流
-- [PowerMem CLI 命令参考](./references/pmem_cli_commands.md)
-- [故障排查指南](./references/pmem_troubleshooting.md) — 502 错误、Embedding URL 陷阱等
-- [PowerMem SQLite 表结构](./references/memory_schema.md)
-
-## 📂 项目结构
-
-```
-memory-powermem-integration/
-├── SKILL.md                      # 主技能定义（Hermes Agent Skill）
-├── README_FLOW.md                # 完整流程详解
-├── scripts/
-│   ├── memory_sync.py            # 记忆同步脚本（Cron Job 调用）
-│   ├── backup_powermem.sh        # 数据库备份脚本（每周日执行）
-│   ├── tag_extractor.py          # 标签提取规则（参考）
-│   └── read_memory.py            # 记忆读取工具
-├── references/
-│   ├── pmem_cli_commands.md      # pmem CLI 命令参考
-│   ├── pmem_add_behavior.md      # pmem add 实测行为记录
-│   ├── pmem_troubleshooting.md  # 故障排查指南
-│   └── memory_schema.md          # PowerMem SQLite 表结构
-└── README.md                     # 项目说明文档
-```
-
-## 💖 支持项目
-
-如果本项目对你有帮助，欢迎 **Star ⭐** 支持！
-
-也欢迎分享给更多 AI 开发者，助力 AI 记忆管理生态建设。
-
-## 📄 开源协议
-
-本项目基于 **Apache License** 开源，可自由用于个人、商业项目，使用时请遵守协议规范。
-
-详细协议内容请查看 [LICENSE](LICENSE) 文件。
+| Directory | Description |
+|---|---|
+| `memory-powermem-integration/` | AI memory persistence via PowerMem — auto-sync, semantic search, scheduled backup |
+| `sqlremote/` | Remote SQL Server 2012 management from Linux — backup, inspection, TLS compatibility |
+| `mssql-legacy/` | Legacy mssql skill for SQL Server remote operations via `mssql` wrapper |
+| `github-readme-creator/` | Mavis skill for generating project README files |
+| `mssql-tools18/` | Microsoft SQL Server command-line tools (sqlcmd, bcp) for Linux |
 
 ---
 
-> 注：部分文档内容由 AI 辅助生成
+## memory-powermem-integration
 
+AI memory integration tool that automatically persists session memory to PowerMem (LLM memory database) with semantic search, tagging, and scheduled backup.
+
+### Key Features
+
+- **On-demand retrieval** — AI searches PowerMem history when needed, no polling required
+- **Auto-sync** — Scheduled memory sedimentation via Cron (default: daily at 01:00)
+- **10-dimension tagging** — Each memory entry auto-tagged across time, topic, keywords, project, action, status, priority, and more
+- **Idempotent writes** — Built-in similarity dedup; no manual content hash required
+- **Auto database backup** — PowerMem SQLite backup every Sunday, 4-week retention
+- **Remote Ollama Embedding** — Works with remote Embedding services via `OLLAMA_EMBEDDING_BASE_URL`
+- **Production-stable** — Uses `--no-infer` to skip LLM inference; write time drops from 35–90s to 3–6s
+
+### Quick Start
+
+```bash
+# Configure Ollama Embedding (PowerMem only recognizes these two variable names)
+export OLLAMA_EMBEDDING_BASE_URL=http://target-host:11434
+# or
+export ollama_base_url=http://target-host:11434
+
+# Verify PowerMem connectivity
+pmem config test
+
+# Manual memory search
+pmem memory search "deployment"
+
+# Manual memory add (fast mode)
+pmem memory add "your memory summary" --metadata '{"tag1_time":"2025-05-24"}' --no-infer
+```
+
+### Environment
+
+- Linux (CentOS / Ubuntu / Debian)
+- Python 3.10+
+- PowerMem CLI (`/root/miniconda3/bin/pmem`)
+- Optional: Cron for scheduled tasks
+
+---
+
+## sqlremote
+
+Lightweight remote management toolkit for SQL Server 2012 from Linux / OpenClaw hosts. Covers connection testing, health inspection, and serial-per-database full backup — without depending on SQL Server Agent.
+
+### Key Features
+
+- **SQL Server 2012 TLS 1.0 compatibility** — Isolated `OPENSSL_CONF` per process; no system-wide TLS downgrade
+- **Connection test** — `scripts/sqlcmd-test.sh` validates connectivity and version
+- **Health inspection SQL** — Check version, database state, recovery model
+- **Remote serial full backup** — Initiate `BACKUP DATABASE` from Linux; files land on the SQL Server host
+- **Backup verification** — Optional `RESTORE VERIFYONLY WITH CHECKSUM` after each database
+- **Run audit trail** — Backup manifests and execution logs written to `reports/`
+
+### Quick Start
+
+```bash
+# Create local .env (do NOT commit to Git)
+cat > ~/workspaces/sqlremote/.env <<'EOF'
+msuser=YOUR_SQL_LOGIN
+mskey=YOUR_SQL_PASSWORD
+EOF
+chmod 600 ~/workspaces/sqlremote/.env
+
+# Test connection
+~/workspaces/sqlremote/scripts/sqlcmd-test.sh 192.0.2.10
+
+# Check database state
+mssql -Q "SELECT name, recovery_model_desc, state_desc FROM sys.databases ORDER BY name;"
+
+# Remote full backup (serial, per-database)
+~/workspaces/sqlremote/scripts/remote_full_backup_133_14.sh
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|---|---:|---|
+| `ROOT_BACKUP_PATH` | `D:\backup` | Backup root path as seen by SQL Server |
+| `VERIFY_BACKUP` | `1` | Run `RESTORE VERIFYONLY` after each backup |
+| `INCLUDE_SYSTEM_DB` | `1` | Include master/model/msdb |
+| `SLEEP_SECONDS` | `3` | Pause between databases |
+| `USE_DATE_SUBDIR` | `1` | Append `yyyyMMdd` subdirectory |
+| `CREATE_BACKUP_DIR` | `1` | Use `xp_cmdshell` to create dirs |
+
+---
+
+## mssql-legacy
+
+Full skill for remote SQL Server 2012 RTM management from Linux. Includes client installation, `OPENSSL_CONF` isolation, `mssql` wrapper command, common ops SQL, and automation scripts.
+
+### Key Features
+
+- **`mssql` wrapper** — Auto-loads credentials + `OPENSSL_CONF`; one command to connect
+- **TLS 1.0 isolation** — `OPENSSL_CONF` loads per sqlcmd process only; system-wide TLS policy untouched
+- **sqlcmd + bcp** — Installed under `/opt/mssql-tools18/bin/`
+- **Health checks** — Version check, database list, log size, disk space
+- **Common ops SQL** — Log truncation, backup trigger, `SHRINKFILE`, etc.
+
+### Quick Start
+
+```bash
+# Query version
+mssql -Q "SELECT @@VERSION"
+
+# List all databases
+mssql -Q "SELECT name, recovery_model_desc FROM sys.databases ORDER BY name"
+
+# Execute SQL file
+mssql -i ~/workspaces/sqlremote/sql/02_check_databases.sql
+```
+
+---
+
+## github-readme-creator
+
+Mavis agent skill for generating practical, project-specific GitHub `README.md` files. Inspects the repository to produce accurate content — no generic marketing filler.
+
+### Key Features
+
+- **Repository inspection** — Reads `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, etc. to understand the project
+- **Secret scanning** — Detects leaked credentials before README generation; surfaces findings for remediation
+- **Accurate sections** — Title, overview, features, requirements, installation, usage, configuration, structure, contributing, license
+- **No placeholder text** — All content reflects actual project state
+
+---
+
+## Project Structure
+
+```
+tomson_skills/
+├── memory-powermem-integration/      # AI memory → PowerMem
+│   ├── SKILL.md
+│   ├── README_FLOW.md
+│   ├── scripts/
+│   │   ├── memory_sync.py            # Cron memory sync
+│   │   ├── backup_powermem.sh       # Weekly DB backup
+│   │   ├── tag_extractor.py
+│   │   ├── read_memory.py
+│   │   └── content_hash.py
+│   └── references/
+│       ├── pmem_cli_commands.md
+│       ├── pmem_add_behavior.md
+│       ├── pmem_troubleshooting.md
+│       └── memory_schema.md
+├── sqlremote/                         # SQL Server remote ops
+│   ├── conf/
+│   │   └── openssl-sqlserver.cnf    # TLS 1.0 compat config
+│   ├── scripts/
+│   │   ├── remote_full_backup_133_14.sh
+│   │   └── sqlcmd-test.sh
+│   ├── sql/
+│   │   ├── 01_check_version.sql
+│   │   └── 02_check_databases.sql
+│   ├── reports/                      # Backup logs
+│   └── .env                          # Credentials (gitignored)
+├── mssql-legacy/                     # Legacy mssql skill
+│   ├── SKILL.md
+│   ├── sql/
+│   │   ├── 01_check_version.sql
+│   │   ├── 02_check_databases.sql
+│   │   ├── 03_check_log_size.sql
+│   │   └── 04_check_disk_space.sql
+│   ├── scripts/
+│   │   ├── sqlcmd-test.sh
+│   │   └── mssql-wrapper.sh
+│   └── docs/
+│       └── sql-recipes.md
+├── github-readme-creator/             # README generator skill
+│   └── SKILL.md
+├── mssql-tools18/                    # SQL Server CLI tools
+│   ├── bin/
+│   │   ├── sqlcmd
+│   │   └── bcp
+│   └── share/resources/
+└── README.md
+```
+
+---
+
+## Security
+
+- **Never commit** `.env`, credentials, private keys, `.pem`, `*.key`, `*.bak`, `*.trn`, `*.mdf`, `*.ldf`, `reports/`, `logs/`, `data/`
+- `.env` files must have `chmod 600` on Linux
+- README and docs use RFC 5737 documentation IPs (e.g. `192.0.2.0/24`) instead of real internal addresses
+- If credentials were ever committed, rotate passwords and clean git history with `git filter-repo` or BFG
+
+---
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE)
+
+---
+
+> Parts of documentation generated with AI assistance
