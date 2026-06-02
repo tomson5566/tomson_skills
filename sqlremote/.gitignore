@@ -1,0 +1,15 @@
+.env
+.env.*
+*.key
+*.pem
+id_rsa*
+credentials*
+secrets.*
+logs/
+reports/
+data/
+*.bak
+*.trn
+*.mdf
+*.ndf
+*.ldf
