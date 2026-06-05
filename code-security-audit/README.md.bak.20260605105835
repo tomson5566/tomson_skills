@@ -1,0 +1,243 @@
+# code-security-audit
+
+> 一款集成本地离线扫描与企业级质量管控的代码安全审计工具，为AI防火墙生态提供全链路代码安全防护能力
+
+## 📌 项目简介
+
+本项目是一款 **代码安全审计CLI工具（AI防火墙生态技能）**，旨在解决开发场景中存在的 **代码安全漏洞检测不及时、多安全工具切换成本高、安全检查与CI/CD集成复杂** 的痛点，整合业界主流的Semgrep和SonarQube两大安全扫描能力，具备高性能、轻量、易用、可扩展的特性，能够大幅提升代码安全审计效率、降低项目安全风险，适配个人开发、团队协作、企业级落地等多种场景。
+
+## ✨ 核心特性
+
+- **双引擎扫描**：整合Semgrep本地离线扫描和SonarQube企业级质量管控能力，覆盖20+编程语言安全规则
+- **开箱即用**：极简设计，无复杂配置，无需账号即可使用Semgrep快速扫描代码安全问题，低学习成本
+- **自动修复**：支持常见安全漏洞、代码规范问题一键自动修复，降低安全问题修复成本
+- **多格式报告**：支持JSON/Markdown两种格式报告导出，方便CI/CD集成和团队安全报告同步
+- **PR定向扫描**：支持Pull Request/Commit维度定向安全扫描，精准拦截问题代码合入主分支
+- **安全合规**：严格遵循国家代码安全规范，内置高危漏洞优先拦截规则，符合等保2.0安全要求
+- **高可扩展**：模块化架构设计，支持自定义安全规则、自定义报告模板，适配个性化业务安全需求
+
+## 📋 环境依赖
+
+- 操作系统：Windows / macOS / Linux 全平台兼容
+- 运行环境：Node.js ≥ 18.0，Python ≥ 3.8
+- 可选依赖：自部署SonarQube实例（仅对接SonarQube功能时需要）
+
+## 🚀 快速安装
+
+### 方式一：Git 克隆源码
+
+```bash
+git clone https://github.com/your-org/ai-firewall-ecosystem.git
+cd ai-firewall-ecosystem/skills/code-security-audit
+npm install
+```
+
+### 方式二：技能市场安装（推荐）
+
+```bash
+# 通过QwenPaw技能市场直接安装
+skillhub install code-security-audit
+```
+
+## 💡 快速使用
+
+### 1. Semgrep本地快速扫描（无需账号）
+
+```bash
+# 基础安全扫描（自动匹配编程语言规则）
+node scripts/semgrep_scan.js --path=/path/to/your/project
+
+# 仅扫描高危/严重安全问题
+node scripts/semgrep_scan.js --path=/path/to/your/project --severities=BLOCKER,CRITICAL
+
+# 自动修复可解决的安全问题
+node scripts/semgrep_scan.js --path=/path/to/your/project --auto-fix=true
+
+# 导出Markdown格式安全报告
+node scripts/semgrep_scan.js --path=/path/to/your/project --output=security-report.md
+```
+
+### 2. SonarQube企业级质量扫描（对接自部署实例）
+
+```bash
+# 配置SonarQube环境变量
+export SONAR_HOST_URL=http://your-sonarqube-instance:9000
+export SONAR_TOKEN=your-sonarqube-auth-token
+
+# 检查项目质量门状态
+node scripts/quality-gate.js --project=your-project-key --pr=123
+
+# 获取项目安全问题列表
+node scripts/analyze.js --project=your-project-key --severities=BLOCKER,CRITICAL
+
+# 自动分析并生成修复方案
+node scripts/analyze.js --project=your-project-key --suggest-fixes
+```
+
+更多高阶用法、参数配置、自定义拓展，可查看完整文档。
+
+## 🤖 技能调用指南
+本技能同时支持人类用户CLI调用和AI Agent自动化调用两种方式。
+
+### 1. 人类用户CLI调用
+```bash
+# 通用调用格式
+node scripts/[脚本名] [参数]
+
+# 常用命令示例
+## 1. 本地安全扫描
+node scripts/semgrep_scan.js --path=/project/path --severities=BLOCKER,CRITICAL --output=report.md
+
+## 2. SonarQube质量门检查
+node scripts/quality-gate.js --project=project-key --pr=123
+
+## 3. 自动生成修复方案
+node scripts/analyze.js --project=project-key --suggest-fixes --auto-fix=true
+```
+
+### 2. AI Agent 函数调用
+本技能属于QwenPaw生态标准技能，其他AI Agent可通过以下方式调用：
+
+#### 函数定义
+```typescript
+// 函数名：code_security_audit
+interface CodeSecurityAuditParams {
+  /** 扫描类型：semgrep（本地扫描）/ sonarqube（SonarQube扫描） */
+  scan_type: 'semgrep' | 'sonarqube';
+  /** 要扫描的目录路径（semgrep扫描必填） */
+  path?: string;
+  /** 要过滤的风险等级，可选值：BLOCKER/CRITICAL/MAJOR/MINOR/INFO */
+  severities?: string[];
+  /** 是否自动修复可解决问题，默认false */
+  auto_fix?: boolean;
+  /** 报告输出路径，支持.md/.json格式 */
+  output?: string;
+  /** SonarQube项目Key（sonarqube扫描必填） */
+  project_key?: string;
+  /** PR编号，针对特定PR扫描（可选） */
+  pr_number?: string;
+  /** 是否生成修复建议，默认false */
+  suggest_fixes?: boolean;
+}
+
+// 调用返回结构
+interface CodeSecurityAuditResult {
+  /** 扫描是否成功 */
+  success: boolean;
+  /** 扫描总问题数 */
+  total_issues: number;
+  /** 各等级问题统计 */
+  severity_summary: {
+    BLOCKER: number;
+    CRITICAL: number;
+    MAJOR: number;
+    MINOR: number;
+    INFO: number;
+  };
+  /** 问题详情列表 */
+  issues?: Array<{
+    file: string;
+    line: number;
+    severity: string;
+    message: string;
+    rule: string;
+    fix: string;
+    url: string;
+  }>;
+  /** 修复建议列表（开启suggest_fixes时返回） */
+  suggestions?: Array<{
+    file: string;
+    line: number;
+    issue: string;
+    suggestion: string;
+    auto_fixable: boolean;
+  }>;
+  /** 错误信息（扫描失败时返回） */
+  error?: string;
+}
+```
+
+#### 调用示例
+```json
+// 示例1：调用Semgrep扫描指定目录高危问题
+{
+  "name": "code_security_audit",
+  "parameters": {
+    "scan_type": "semgrep",
+    "path": "/home/workspace/project",
+    "severities": ["BLOCKER", "CRITICAL"],
+    "output": "/home/workspace/security_report.md"
+  }
+}
+
+// 示例2：调用SonarQube检查项目质量门
+{
+  "name": "code_security_audit",
+  "parameters": {
+    "scan_type": "sonarqube",
+    "project_key": "my-project",
+    "pr_number": "123",
+    "suggest_fixes": true
+  }
+}
+```
+
+## 📚 详细文档
+
+- [完整使用文档](SKILL.md)
+- [快速入门教程](https://github.com/your-org/ai-firewall-ecosystem/wiki/code-security-audit-快速入门)
+- [自定义规则配置](https://github.com/your-org/ai-firewall-ecosystem/wiki/自定义安全规则)
+- [CI/CD集成指南](https://github.com/your-org/ai-firewall-ecosystem/wiki/CI-CD集成)
+- [常见问题 FAQ](https://github.com/your-org/ai-firewall-ecosystem/discussions/categories/q-a)
+
+## 📂 项目结构
+
+```Plain Text
+├── assets/               # 静态资源目录
+├── scripts/              # 核心功能脚本目录
+│   ├── semgrep_scan.js   # Semgrep本地扫描脚本
+│   ├── analyze.js        # SonarQube分析脚本
+│   ├── quality-gate.js   # 质量门检查脚本
+│   └── report.js         # 报告生成脚本
+├── references/           # 参考文档目录
+├── CHANGELOG.md          # 版本变更日志
+├── CONTRIBUTING.md       # 贡献指南
+├── _meta.json            # 技能元数据配置
+├── .gitignore            # Git 忽略配置
+├── LICENSE               # 开源协议文件
+├── SKILL.md              # 技能完整使用文档
+├── README.md             # 项目说明文档
+└── package.json          # 项目依赖配置
+```
+
+## 🤝 参与贡献
+
+欢迎所有开发者参与项目共建，无论是功能迭代、Bug 修复、文档完善、安全规则补充，都非常欢迎！
+
+### 贡献流程
+
+1. Fork 本项目仓库
+2. 创建特性分支：`git checkout -b feature/xxx`
+3. 提交修改：`git commit -m 'feat: 新增xxx安全规则'`
+4. 推送分支：`git push origin feature/xxx`
+5. 提交 Pull Request，等待审核合并
+
+### 贡献规范
+
+- 代码遵循项目统一编码规范，格式整洁统一
+- 新增安全规则需补充对应测试用例与文档说明
+- 提交信息清晰规范，明确修改内容
+- 所有提交需通过安全扫描检查，无安全漏洞
+
+## 💖 支持项目
+
+如果本项目对你有帮助，欢迎 **Star ⭐** 支持，你的鼓励是项目持续迭代的动力！
+
+也欢迎分享给更多开发者，助力代码安全生态建设。
+
+## 📄 开源协议
+
+本项目基于 **MIT License** 开源，可自由用于个人、商业项目，使用时请遵守协议规范。
+
+详细协议内容请查看 [LICENSE](LICENSE) 文件。
+

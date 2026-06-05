@@ -1,0 +1,153 @@
+#!/usr/bin/env node
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const yargs = require('yargs/yargs');
+const { hideBin } = require('yargs/helpers');
+
+const argv = yargs(hideBin(process.argv))
+  .option('path', {
+    alias: 'p',
+    type: 'string',
+    description: '要扫描的目录路径',
+    demandOption: true
+  })
+  .option('config', {
+    alias: 'c',
+    type: 'string',
+    default: 'auto',
+    description: 'Semgrep扫描规则配置，默认auto自动匹配'
+  })
+  .option('severities', {
+    alias: 's',
+    type: 'array',
+    default: ['BLOCKER', 'CRITICAL', 'MAJOR'],
+    description: '要过滤的风险等级：BLOCKER, CRITICAL, MAJOR, MINOR, INFO'
+  })
+  .option('output', {
+    alias: 'o',
+    type: 'string',
+    description: '输出报告文件路径，支持.md/.json格式'
+  })
+  .option('auto-fix', {
+    type: 'boolean',
+    default: false,
+    description: '是否应用自动修复'
+  })
+  .help()
+  .argv;
+
+function runSemgrepScan() {
+  console.log(`🔍 开始Semgrep代码安全扫描，扫描路径：${argv.path}`);
+  console.log(`⚙️  规则配置：${argv.config}，风险等级：${argv.severities.join(',')}`);
+  
+  // Semgrep severity映射：BLOCKER/CRITICAL -> ERROR, MAJOR/MINOR -> WARNING, INFO -> INFO
+  const severityMap = {
+    'BLOCKER': 'ERROR',
+    'CRITICAL': 'ERROR',
+    'MAJOR': 'WARNING',
+    'MINOR': 'WARNING',
+    'INFO': 'INFO'
+  };
+  const semgrepSeverities = [...new Set(argv.severities.map(s => severityMap[s] || s))];
+  const severityArgs = semgrepSeverities.map(s => `--severity=${s}`).join(' ');
+  const autoFixArg = argv.autoFix ? '--autofix' : '';
+  const outputArg = argv.output ? `--output=${argv.output}` : '';
+  
+  try {
+    const command = `semgrep scan --config=${argv.config} ${severityArgs} ${autoFixArg} --json --quiet --no-git-ignore ${argv.path}`;
+    const result = execSync(command, { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 100 });
+    const scanResult = JSON.parse(result);
+    // 反向映射回标准安全等级
+    const reverseSeverityMap = {
+      'ERROR': 'CRITICAL',
+      'WARNING': 'MAJOR',
+      'INFO': 'INFO'
+    };
+    
+    const mappedIssues = scanResult.results.map(r => ({
+      file: r.path,
+      line: r.start.line,
+      severity: reverseSeverityMap[r.extra.severity] || r.extra.severity,
+      message: r.extra.message,
+      rule: r.check_id,
+      fix: r.extra.fix || '无自动修复方案',
+      url: r.extra.metadata?.source || ''
+    }));
+    
+    const summary = {
+      total: mappedIssues.length,
+      severities: {
+        BLOCKER: mappedIssues.filter(r => r.severity === 'BLOCKER').length,
+        CRITICAL: mappedIssues.filter(r => r.severity === 'CRITICAL').length,
+        MAJOR: mappedIssues.filter(r => r.severity === 'MAJOR').length,
+        MINOR: mappedIssues.filter(r => r.severity === 'MINOR').length,
+        INFO: mappedIssues.filter(r => r.severity === 'INFO').length
+      },
+      issues: mappedIssues
+    };
+    
+    // 打印汇总结果
+    console.log('\n📊 扫描完成，结果汇总：');
+    console.log(`总问题数：${summary.total}`);
+    console.log(`🔴 高危（BLOCKER）：${summary.severities.BLOCKER}`);
+    console.log(`🟠 严重（CRITICAL）：${summary.severities.CRITICAL}`);
+    console.log(`🟡 重要（MAJOR）：${summary.severities.MAJOR}`);
+    console.log(`🟢 次要（MINOR）：${summary.severities.MINOR}`);
+    console.log(`🔵 提示（INFO）：${summary.severities.INFO}`);
+    
+    if (argv.output) {
+      if (argv.output.endsWith('.md')) {
+        generateMarkdownReport(summary, argv.output);
+        console.log(`📝 Markdown报告已保存到：${argv.output}`);
+      } else if (argv.output.endsWith('.json')) {
+        fs.writeFileSync(argv.output, JSON.stringify(summary, null, 2), 'utf-8');
+        console.log(`📝 JSON报告已保存到：${argv.output}`);
+      }
+    }
+    
+    return summary;
+  } catch (error) {
+    console.error('❌ 扫描失败：', error.message);
+    process.exit(1);
+  }
+}
+
+function generateMarkdownReport(summary, outputPath) {
+  let content = `# Semgrep代码安全扫描报告\n\n`;
+  content += `## 扫描概览\n\n`;
+  content += `- 扫描时间：${new Date().toLocaleString('zh-CN')}\n`;
+  content += `- 扫描路径：${argv.path}\n`;
+  content += `- 总问题数：${summary.total}\n`;
+  content += `- 高危问题：${summary.severities.BLOCKER}\n`;
+  content += `- 严重问题：${summary.severities.CRITICAL}\n`;
+  content += `- 重要问题：${summary.severities.MAJOR}\n`;
+  content += `- 次要问题：${summary.severities.MINOR}\n`;
+  content += `- 提示问题：${summary.severities.INFO}\n\n`;
+  
+  content += `## 问题详情\n\n`;
+  ['BLOCKER', 'CRITICAL', 'MAJOR', 'MINOR', 'INFO'].forEach(severity => {
+    const issues = summary.issues.filter(i => i.severity === severity);
+    if (issues.length === 0) return;
+    
+    const severityLabel = {
+      BLOCKER: '🔴 高危',
+      CRITICAL: '🟠 严重',
+      MAJOR: '🟡 重要',
+      MINOR: '🟢 次要',
+      INFO: '🔵 提示'
+    }[severity];
+    
+    content += `### ${severityLabel} 问题（共${issues.length}个）\n\n`;
+    issues.forEach((issue, index) => {
+      content += `${index + 1}. **文件**：${issue.file}，**行号**：${issue.line}\n`;
+      content += `   **问题描述**：${issue.message}\n`;
+      content += `   **规则ID**：[${issue.rule}](${issue.url})\n`;
+      content += `   **修复方案**：${issue.fix}\n\n`;
+    });
+  });
+  
+  fs.writeFileSync(outputPath, content, 'utf-8');
+}
+
+runSemgrepScan();
