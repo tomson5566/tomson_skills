@@ -6,11 +6,12 @@ Collection of AI Agent Skills and database automation tools for personal devops 
 
 | Directory | Description |
 |---|---|
-| `memory-powermem-integration/` | AI memory persistence via PowerMem — auto-sync, semantic search, scheduled backup |
-| `sqlremote/` | Remote SQL Server 2012 management from Linux — backup, inspection, TLS compatibility |
-| `mssql-legacy/` | Legacy mssql skill for SQL Server remote operations via `mssql` wrapper |
+| `code-security-audit/` | OpenClaw/Agent Skill 代码安全审计 — Semgrep + builtin SAST、Skill 包专项审计、SonarQube 集成 |
 | `github-readme-creator/` | Mavis skill for generating project README files |
+| `memory-powermem-integration/` | AI memory persistence via PowerMem — auto-sync, semantic search, scheduled backup |
+| `mssql-legacy/` | Legacy mssql skill for SQL Server remote operations via `mssql` wrapper |
 | `mssql-tools18/` | Microsoft SQL Server command-line tools (sqlcmd, bcp) for Linux |
+| `sqlremote/` | Remote SQL Server 2012 management from Linux — backup, inspection, TLS compatibility |
 
 ---
 
@@ -141,10 +142,73 @@ Mavis agent skill for generating practical, project-specific GitHub `README.md` 
 
 ---
 
+## code-security-audit
+
+面向 OpenClaw / Agent Skill / 普通代码仓库的代码安全审计技能。优先使用 Semgrep，Semgrep 不可用时自动回退内置轻量 builtin 规则；还支持 SonarQube 查询和 Skill 包专项审计。
+
+### Key Features
+
+- **多引擎扫描** — `auto` 模式优先 Semgrep，失败后自动回退 builtin，无需人工干预
+- **builtin 轻量规则** — 覆盖私钥块、硬编码凭据、MD5/SHA1 弱哈希、命令注入、SQL 拼接、关闭 TLS、Prompt Injection 等
+- **Skill 包专项审计** — 检查 `SKILL.md` 规范性、危险命令、敏感信息、冗余运行时目录
+- **SonarQube 集成** — 查询 quality gate、issues 和生成 Markdown 报告
+- **CI 友好退出码** — 发现 BLOCKER/CRITICAL 返回 `2`，自动化阻断
+
+### Quick Start
+
+```bash
+# 安装依赖
+cd ~/.openclaw/skills/code-security-audit && npm install && npm test
+
+# 本地代码扫描（auto模式）
+node scripts/semgrep_scan.js \
+  --engine=auto \
+  --path=/path/to/project \
+  --severities=BLOCKER,CRITICAL,MAJOR \
+  --exclude=node_modules,.venv \
+  --output=security-report.md
+
+# Skill 包专项审计
+python3 scripts/audit_skill.py /path/to/skill \
+  --engine=builtin \
+  --print-issues
+
+# SonarQube quality gate
+export SONAR_HOST_URL=http://127.0.0.1:9000
+export SONAR_TOKEN=your-token
+node scripts/quality-gate.js --project=my-project
+```
+
+### Environment
+
+- Node.js 18+ / Python 3.8+
+- 可选：Semgrep（不装也能用 builtin 引擎）
+
+---
+
 ## Project Structure
 
 ```
 tomson_skills/
+├── code-security-audit/              # OpenClaw/Agent Skill 安全审计
+│   ├── SKILL.md
+│   ├── README.md
+│   ├── _meta.json
+│   ├── openclaw.plugin.json
+│   ├── package.json
+│   ├── assets/
+│   ├── references/
+│   ├── scripts/
+│   │   ├── semgrep_scan.js           # 本地 SAST 扫描入口
+│   │   ├── audit_skill.py           # Skill 包专项审计
+│   │   ├── analyze.js               # SonarQube issues 查询
+│   │   ├── quality-gate.js          # SonarQube quality gate 查询
+│   │   ├── report.js # SonarQube Markdown 报告
+│   │   └── smoke_test.js           # 自检脚本
+│   └── src/
+├── github-readme-creator/             # README generator skill
+│   ├── SKILL.md
+│   └── references/
 ├── memory-powermem-integration/      # AI memory → PowerMem
 │   ├── SKILL.md
 │   ├── README_FLOW.md
@@ -159,36 +223,46 @@ tomson_skills/
 │       ├── pmem_add_behavior.md
 │       ├── pmem_troubleshooting.md
 │       └── memory_schema.md
-├── sqlremote/                         # SQL Server remote ops
-│   ├── conf/
-│   │   └── openssl-sqlserver.cnf    # TLS 1.0 compat config
-│   ├── scripts/
-│   │   ├── remote_full_backup_133_14.sh
-│   │   └── sqlcmd-test.sh
-│   ├── sql/
-│   │   ├── 01_check_version.sql
-│   │   └── 02_check_databases.sql
-│   ├── reports/                      # Backup logs
-│   └── .env                          # Credentials (gitignored)
 ├── mssql-legacy/                     # Legacy mssql skill
 │   ├── SKILL.md
-│   ├── sql/
-│   │   ├── 01_check_version.sql
-│   │   ├── 02_check_databases.sql
-│   │   ├── 03_check_log_size.sql
-│   │   └── 04_check_disk_space.sql
+│   ├── README.md
+│   ├── LICENSE
+│   ├── .gitignore
+│   ├── conf/
+│   ├── docs/
+│   │   └── troubleshooting.md
 │   ├── scripts/
-│   │   ├── sqlcmd-test.sh
-│   │   └── mssql-wrapper.sh
-│   └── docs/
-│       └── sql-recipes.md
-├── github-readme-creator/             # README generator skill
-│   └── SKILL.md
+│   │   ├── check-prereqs.sh
+│   │   ├── mssql-wrapper.sh
+│   │   └── sqlcmd-test.sh
+│   └── sql/
+│       ├── 01_check_version.sql
+│       ├── 02_check_databases.sql
+│       ├── 03_check_log_size.sql
+│       └── 04_check_disk_space.sql
 ├── mssql-tools18/                    # SQL Server CLI tools
 │   ├── bin/
 │   │   ├── sqlcmd
-│   │   └── bcp
+│   │   ├── bcp
+│   │   └── mssql                   # 本机包装脚本
+│   ├── README.md
 │   └── share/resources/
+├── sqlremote/                         # SQL Server remote ops
+│   ├── README.md
+│   ├── .env                          # Credentials (gitignored)
+│   ├── conf/
+│   │   └── openssl-sqlserver.cnf    # TLS 1.0 compat config
+│   ├── data/
+│   ├── logs/
+│   ├── reports/                      # Backup logs
+│   ├── scripts/
+│   │   ├── remote_full_backup_133_14.sh
+│   │   └── sqlcmd-test.sh
+│   └── sql/
+│       ├── 01_check_version.sql
+│       └── 02_check_databases.sql
+├── powermem-cli-usage-guide.md        # PowerMem CLI 完整使用指南
+├── LICENSE
 └── README.md
 ```
 
