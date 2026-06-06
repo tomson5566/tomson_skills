@@ -11,6 +11,16 @@
 
 ## 1. 能力概览
 
+### 功能升级摘要
+
+本版本融合了 https://github.com/anthropics/claude-code-security-review 中值得借鉴的内容：
+
+- 合并 `references/vulnerability_rules.md`、`references/report_template.md` 和 Juice Shop 审计示例，补齐审计流程、业务逻辑、攻击链、数据流追踪指南。
+- 新增 `scripts/review_filter.py`，借鉴 PR Security Review 的 hard-exclusion 思路，支持对 DoS、rate-limit、resource-leak、open-redirect、memory-safety 等低信噪比发现做可配置过滤。
+- builtin 引擎新增 JWT、NoSQL 注入、原型污染、路径遍历、XXE、CORS、DEBUG、容器配置、供应链 lockfile/版本固定等规则。
+- 新增 `--mode=quick|standard|deep` 和 `--fail-on` 参数，便于 CI/CD 调整阻断阈值。
+- 新增 `scripts/dep_audit.sh`、`scripts/dep_audit_java.sh` 依赖审计辅助脚本。
+
 ### 本地代码安全扫描
 
 入口：
@@ -124,7 +134,71 @@ npm test
 
 ---
 
-## 4. 可选：安装 Semgrep
+## 4. 升级后新增用法
+
+### 4.1 指定审计模式和 CI 阻断阈值
+
+```bash
+node scripts/semgrep_scan.js \
+  --engine=builtin \
+  --path=/path/to/project \
+  --mode=standard \
+  --fail-on=MAJOR \
+  --output=security-report.json
+```
+
+说明：
+
+- `--mode=quick|standard|deep`：标记审计深度，写入报告元信息，便于流程化区分轻度/中度/深度审计。
+- `--fail-on`：控制返回码触发阈值。比如 `--fail-on=MAJOR` 表示发现 MAJOR 及以上问题就返回 `2`，适合 CI 阻断。
+
+### 4.2 对 JSON 报告做误报过滤
+
+```bash
+.venv/bin/python scripts/review_filter.py security-report.json \
+  --output security-report.filtered.json
+```
+
+可控制过滤类别：
+
+```bash
+.venv/bin/python scripts/review_filter.py security-report.json \
+  --exclude-classes=dos,rate-limit,resource-leak,open-redirect,memory-safety \
+  --keep-classes=open-redirect \
+  --output security-report.filtered.json
+```
+
+默认过滤类别来自 PR Security Review 的 hard-exclusion 思路，适合降低低信噪比发现。
+
+### 4.3 Skill 审计时自动生成过滤后报告
+
+```bash
+.venv/bin/python scripts/audit_skill.py /path/to/skill \
+  --engine=builtin \
+  --output=/tmp/audit-skill.json \
+  --format=json \
+  --filter
+```
+
+会生成：
+
+```text
+/tmp/audit-skill.json
+/tmp/audit-skill.filtered.json
+```
+
+### 4.4 依赖审计辅助
+
+```bash
+scripts/dep_audit.sh /path/to/project auto
+scripts/dep_audit_java.sh /path/to/project
+```
+
+这些脚本会优先调用本机可用的生态原生工具；工具不存在时跳过，不会破坏环境。
+
+---
+
+## 5. 可选：安装 Semgrep
 
 `code-security-audit` 不强制要求 Semgrep。没有 Semgrep 时仍可用 builtin 引擎完成基础检查。
 
@@ -172,7 +246,7 @@ which semgrep
 
 ---
 
-## 5. 初始化环境准备
+## 6. 初始化环境准备
 
 ### 5.1 检查基础环境
 
@@ -237,7 +311,7 @@ node scripts/semgrep_scan.js \
 
 ---
 
-## 6. 5 分钟快速上手
+## 7. 5 分钟快速上手
 
 ### 场景一：扫描一个普通项目
 
@@ -328,7 +402,7 @@ python3 scripts/audit_skill.py . \
 
 ---
 
-## 7. SonarQube 初始化
+## 8. SonarQube 初始化
 
 如果只做本地扫描，可以跳过本节。
 
@@ -367,7 +441,7 @@ node scripts/report.js --project=my-project --format=markdown
 
 ---
 
-## 8. 常用参数速查
+## 9. 常用参数速查
 
 ### `semgrep_scan.js`
 
@@ -397,7 +471,7 @@ node scripts/report.js --project=my-project --format=markdown
 
 ---
 
-## 9. 风险分级建议
+## 10. 风险分级建议
 
 - 🔴 `BLOCKER`：阻断级风险，例如私钥块、极危险命令。应立即处理。
 - 🟠 `CRITICAL`：严重风险，例如硬编码敏感凭据、命令注入入口、关闭 TLS 校验。建议 CI 阻断。
@@ -407,7 +481,7 @@ node scripts/report.js --project=my-project --format=markdown
 
 ---
 
-## 10. 安全注意事项
+## 11. 安全注意事项
 
 1. **不要把扫描报告当成公开文档随意转发**  
    虽然本技能默认不输出命中源码原文，但报告仍包含路径、行号和风险描述。
@@ -426,7 +500,7 @@ node scripts/report.js --project=my-project --format=markdown
 
 ---
 
-## 11. 项目结构
+## 12. 项目结构
 
 ```text
 ├── scripts/
@@ -445,7 +519,7 @@ node scripts/report.js --project=my-project --format=markdown
 
 ---
 
-## 12. 常见问题
+## 13. 常见问题
 
 ### 12.1 没有 Semgrep 能不能用？
 
@@ -506,7 +580,7 @@ test -n "$SONAR_TOKEN" && echo "SONAR_TOKEN is set"
 
 ---
 
-## 13. 推荐落地路径
+## 14. 推荐落地路径
 
 如果你刚开始做 AI 应用或 Agent Skill 安全，建议按这个顺序推进：
 
@@ -519,7 +593,7 @@ test -n "$SONAR_TOKEN" && echo "SONAR_TOKEN is set"
 
 ---
 
-## 14. 一屏命令速查
+## 15. 一屏命令速查
 
 ```bash
 # 进入技能目录
@@ -568,7 +642,7 @@ node scripts/report.js --project=my-project --format=markdown
 
 ---
 
-## 15. 参考
+## 16. 参考
 
 - `SKILL.md`：OpenClaw 技能完整说明。
 - `scripts/semgrep_scan.js`：本地扫描入口。

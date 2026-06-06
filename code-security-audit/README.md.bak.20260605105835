@@ -229,6 +229,12 @@ interface CodeSecurityAuditResult {
 - 提交信息清晰规范，明确修改内容
 - 所有提交需通过安全扫描检查，无安全漏洞
 
+## 🐛 问题反馈
+
+- 提交 [GitHub Issues](https://github.com/your-org/ai-firewall-ecosystem/issues)（优先推荐）
+- 提交 [GitHub Discussions](https://github.com/your-org/ai-firewall-ecosystem/discussions) 进行技术交流
+- 邮箱反馈：security@your-org.com
+
 ## 💖 支持项目
 
 如果本项目对你有帮助，欢迎 **Star ⭐** 支持，你的鼓励是项目持续迭代的动力！
@@ -241,3 +247,8 @@ interface CodeSecurityAuditResult {
 
 详细协议内容请查看 [LICENSE](LICENSE) 文件。
 
+## 👥 贡献者
+
+感谢所有为本项目贡献代码、文档、安全规则、思路的开发者！
+
+[所有贡献者列表](https://github.com/your-org/ai-firewall-ecosystem/graphs/contributors)

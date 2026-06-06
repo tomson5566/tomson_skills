@@ -1,7 +1,7 @@
 {
   "name": "@felipeoff/sonarqube-analyzer",
-  "version": "1.0.0",
-  "description": "OpenClaw skill for SonarQube code quality analysis with intelligent issue detection",
+  "version": "1.1.0",
+  "description": "Code security audit skill with Semgrep/builtin rules, dependency audit helpers, false-positive filtering, Skill package audit, and SonarQube integration",
   "main": "src/index.js",
   "bin": {
     "sonarqube-analyzer": "./scripts/analyze.js",
@@ -15,16 +15,25 @@
     "lint": "eslint src scripts",
     "typecheck": "tsc --noEmit",
     "scan": "node scripts/semgrep_scan.js",
-    "audit-skill": "python3 scripts/audit_skill.py"
+    "audit-skill": "python3 scripts/audit_skill.py",
+    "filter": "python3 scripts/review_filter.py",
+    "dep-audit": "bash scripts/dep_audit.sh",
+    "dep-audit-java": "bash scripts/dep_audit_java.sh"
   },
   "keywords": [
+    "ci-cd",
+    "code-quality",
+    "code-review",
+    "dependency-audit",
+    "false-positive-filtering",
     "openclaw",
     "openclaw-skill",
+    "sast",
+    "security",
+    "semgrep",
+    "skill-audit",
     "sonarqube",
-    "code-quality",
-    "static-analysis",
-    "code-review",
-    "ci-cd"
+    "static-analysis"
   ],
   "author": "FelipeOFF <felipeoliveireferreira@gmail.com>",
   "license": "MIT",

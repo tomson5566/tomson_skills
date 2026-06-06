@@ -78,6 +78,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--no-delegate", action="store_true", help="不调用 semgrep_scan.js，只运行 Python 专项规则")
     p.add_argument("--strict", action="store_true", help="严格模式：MAJOR 也返回非零退出码")
     p.add_argument("--print-issues", action="store_true", help="终端输出问题明细；默认只输出汇总和报告路径")
+    p.add_argument("--filter", action="store_true", help="委托扫描后对 JSON 产物做 false-positive 过滤（调用 review_filter.py）")
+    p.add_argument("--filter-classes", default="", help="review_filter.py 需要排除的 class 列表，逗号分隔（默认：dos,rate-limit,resource-leak,open-redirect,memory-safety）")
+    p.add_argument("--filter-keep-classes", default="", help="review_filter.py 需要保留的 class 列表，即使默认值中已被排除")
     return p.parse_args()
 
 
@@ -242,12 +245,14 @@ def run_delegate_scan(root: Path, engine: str, severities: str, excludes: list[s
             pass
     engine_used = data.get("engine", engine)
     issues = []
-    for x in data.get("issues", []):
+    for x in (data.get("issues") or data.get("findings") or []):
+        raw_file = Path(x.get("file", str(root)))
+        file_path = raw_file if raw_file.is_absolute() else root / raw_file
         issues.append(Issue(
-            file=str(Path(x.get("file", str(root))).resolve()),
+            file=str(file_path.resolve()),
             line=int(x.get("line", 1) or 1),
             severity=str(x.get("severity", "INFO")).upper(),
-            rule=str(x.get("rule", "delegate.unknown")),
+            rule=str(x.get("rule") or x.get("id") or "delegate.unknown"),
             message=str(x.get("message", "委托扫描发现问题。")),
             fix=str(x.get("fix", "参考扫描器建议修复。")),
             category=f"delegate:{engine_used}",
@@ -390,6 +395,24 @@ def main() -> int:
     report_path, fmt = choose_output(root, args.output, args.format)
     write_report(summary, report_path, fmt)
     print_summary(summary, report_path, args.print_issues)
+
+    if args.filter and not args.no_delegate and args.engine != "none":
+        filter_tool = SKILL_ROOT / "scripts" / "review_filter.py"
+        if filter_tool.exists() and report_path.suffix.lower() == ".json":
+            filter_args = [
+                sys.executable or "python3", str(filter_tool), str(report_path),
+                "--output", str(report_path.with_suffix(".filtered.json")),
+            ]
+            if args.filter_classes:
+                filter_args += ["--exclude-classes", args.filter_classes]
+            if args.filter_keep_classes:
+                filter_args += ["--keep-classes", args.filter_keep_classes]
+            proc = subprocess.run(filter_args, cwd=str(SKILL_ROOT), text=True, capture_output=True)
+            if proc.returncode == 0:
+                print(f"📊 review_filter 过滤后输出：{report_path.with_suffix('.filtered.json')}")
+                print(f"   过滤摘要：{proc.stdout.strip()}")
+            else:
+                print(f"⚠ review_filter 执行异常：{proc.stderr.strip()}")
 
     blockers = summary["severities"].get("BLOCKER", 0) + summary["severities"].get("CRITICAL", 0)
     majors = summary["severities"].get("MAJOR", 0)
