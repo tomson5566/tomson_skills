@@ -1,0 +1,47 @@
+{
+  "name": "duckdb-sql",
+  "category": "data",
+  "description": "Generate DuckDB SQL queries and integrate DuckDB into Python projects (uv venv). Use when user asks about DuckDB queries, data analysis, .ddb / .csv / .parquet files, wants help writing/editing/reviewing SQL, asks about DuckDB Python client / uv venv / FastAPI integration / Jupyter / ETL, or wants to initialize a DuckDB environment in a project.",
+  "version": "0.2.0",
+  "updated_at": "2026-06-20",
+  "extends": "robdmc/claude_skills (v0.1 — data asset documentation)",
+  "triggers": [
+    "DuckDB query / SQL / data analysis",
+    ".ddb / .csv / .parquet / NDJSON files",
+    "DuckDB Python client / Python integration",
+    "uv venv / uv add duckdb / pip install duckdb",
+    "FastAPI / Jupyter / ETL with DuckDB",
+    "DuckDB performance / EXPLAIN / index",
+    "DuckDB in [project name]"
+  ],
+  "references_count": 10,
+  "references": [
+    "01_sql_cheatsheet.md",
+    "02_dml_cheatsheet.md",
+    "03_functions_cheatsheet.md",
+    "04_data_types_cheatsheet.md",
+    "05_dialect_cheatsheet.md",
+    "06_python_integration.md",
+    "07_uv_deployment.md",
+    "08_project_patterns.md",
+    "09_performance_tuning.md",
+    "10_extension_links.md"
+  ],
+  "main_topics": [
+    "SQL syntax (SELECT/JOIN/WINDOW/CTE/MERGE/COPY/ATTACH)",
+    "DuckDB Python client + DataFrame/Arrow interop",
+    "uv-managed independent Python environment",
+    "Project integration (FastAPI/Jupyter/ETL/CLI)",
+    "Performance tuning (index/EXPLAIN/parallel)",
+    "DuckDB-specific extensions (EXCLUDE/QUALIFY/ASOF/COLUMNS/SAMPLE/PIVOT)",
+    "PostgreSQL compatibility notes",
+    "Data asset documentation workflow (legacy)"
+  ],
+  "tested_with": {
+    "duckdb_python": "1.5.2 / 1.5.4",
+    "duckdb_cli": "v1.0.0 / v1.5.x",
+    "python": "3.12 / 3.13",
+    "uv": "0.11.8",
+    "platform": "Linux x86_64"
+  }
+}
