@@ -1,0 +1,34 @@
+name: cross-platform
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  doctor:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Bootstrap runtime
+        run: python scripts/thinkwiki bootstrap
+
+      - name: Run doctor
+        run: python scripts/thinkwiki doctor --repo-root .
+
+      - name: Show entry help
+        run: python scripts/thinkwiki --help
+
+      - name: Run regression tests
+        run: python -m unittest discover -s tests -p "test_thinkwiki.py"

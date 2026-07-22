@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ThinkWiki Outputs</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121935;
+      --text: #edf2ff;
+      --muted: #a8b3cf;
+      --border: rgba(255,255,255,0.1);
+      --accent: #8ab4ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #0b1020 0%, #10172f 100%);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .shell {
+      width: min(880px, 100%);
+      background: rgba(9, 13, 28, 0.86);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 28px;
+    }
+    h1, p { margin-top: 0; }
+    .lead {
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .hero {
+      display: grid;
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+    .eyebrow {
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.82rem;
+      margin-bottom: 10px;
+    }
+    .hero-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .hero-title h1 {
+      margin-bottom: 0;
+    }
+    .meta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 12px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      background: rgba(255,255,255,0.03);
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+    }
+    .stat {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: 18px;
+      padding: 16px;
+    }
+    .stat strong {
+      display: block;
+      font-size: 1.45rem;
+      margin-bottom: 6px;
+    }
+    .stat span {
+      color: var(--muted);
+    }
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+    .workspace-grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 1.1fr 0.9fr;
+      margin-top: 18px;
+    }
+    .section-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .panel {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      border-radius: 18px;
+      padding: 18px;
+    }
+    .panel h2 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+    .panel p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .card {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: 18px;
+      padding: 18px;
+    }
+    .card:hover {
+      border-color: rgba(138,180,255,0.55);
+      box-shadow: 0 0 0 1px rgba(138,180,255,0.18);
+    }
+    .card strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 1.05rem;
+    }
+    .card span {
+      display: block;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    code {
+      color: var(--accent);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      word-break: break-word;
+    }
+    .empty {
+      border: 1px dashed var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      color: var(--muted);
+    }
+    .small {
+      padding: 14px;
+      font-size: 0.95rem;
+    }
+    .mini-card {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      border: 1px solid var(--border);
+      background: rgba(18, 25, 53, 0.85);
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+    .mini-card:last-child {
+      margin-bottom: 0;
+    }
+    .mini-card:hover {
+      border-color: rgba(138,180,255,0.55);
+    }
+    .mini-card strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+    .quality {
+      display: inline-block;
+      margin-top: 8px;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .quality-ready {
+      background: rgba(47, 163, 91, 0.16);
+      color: #8de2a7;
+    }
+    .quality-review {
+      background: rgba(242, 166, 43, 0.16);
+      color: #ffd08a;
+    }
+    .quality-weak {
+      background: rgba(214, 77, 77, 0.16);
+      color: #ff9f9f;
+    }
+    .quality-media {
+      background: rgba(104, 114, 255, 0.16);
+      color: #b9c0ff;
+    }
+    .mini-card span {
+      display: block;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .mini-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .mini-type {
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+    }
+    .guide {
+      margin-top: 18px;
+      border: 1px solid rgba(138,180,255,0.22);
+      background: rgba(138,180,255,0.08);
+      border-radius: 18px;
+      padding: 16px 18px;
+    }
+    .guide strong {
+      display: block;
+      margin-bottom: 8px;
+    }
+    .guide span {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .bullet-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      display: grid;
+      gap: 10px;
+      line-height: 1.5;
+    }
+    .bullet-list strong {
+      color: var(--text);
+    }
+    .actions {
+      display: grid;
+      gap: 10px;
+    }
+    .action-card {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      border: 1px solid var(--border);
+      background: rgba(18, 25, 53, 0.85);
+      border-radius: 16px;
+      padding: 14px;
+    }
+    .action-card:hover {
+      border-color: rgba(138,180,255,0.55);
+    }
+    .action-card strong {
+      display: block;
+      margin: 6px 0;
+    }
+    .action-card span {
+      color: var(--muted);
+      line-height: 1.45;
+      display: block;
+    }
+    .action-tag {
+      display: inline-block;
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .snapshot {
+      display: grid;
+      gap: 10px;
+    }
+    .snapshot-copy {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .snapshot-chip {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      padding: 12px 14px;
+      color: var(--muted);
+    }
+    .snapshot-chip strong {
+      color: var(--text);
+    }
+    @media (max-width: 720px) {
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .workspace-grid {
+        grid-template-columns: 1fr;
+      }
+      .section-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="eyebrow">Knowledge Workspace</div>
+      <div class="hero-title">
+        <h1>ThinkWiki Demo Wiki</h1>
+        <div class="meta">
+          <span class="badge">Workspace Home</span>
+          <span class="badge">Generated 2026-06-23</span>
+        </div>
+      </div>
+      <p class="lead">This is more than an output index. It is the current workspace home for the wiki, where you can see what changed, what needs attention, and what is still waiting in the inbox before deciding whether to open the viewer or the graph.</p>
+      <div class="stats">
+        <div class='stat'><strong>4</strong><span>Outputs</span></div>
+<div class='stat'><strong>1</strong><span>Inbox</span></div>
+<div class='stat'><strong>1</strong><span>Ready</span></div>
+<div class='stat'><strong>11</strong><span>Pages</span></div>
+<div class='stat'><strong>11</strong><span>Graph Nodes</span></div>
+<div class='stat'><strong>41</strong><span>Graph Edges</span></div>
+<div class='stat'><strong>0</strong><span>Claims</span></div>
+<div class='stat'><strong>0</strong><span>Entities</span></div>
+      </div>
+    </section>
+    <div class="workspace-grid">
+      <section class="panel">
+        <h2>What Changed</h2>
+        <p>This section highlights recently updated and recently generated pages so you can quickly see what changed in the wiki.</p>
+        <a class='mini-card' href='viewer/index.html#page=wiki/queries/what-makes-ai-native-team.md' target='_blank' rel='noopener'><div class='mini-meta'><span class='mini-type'>query</span><span>2026-06-19</span></div><strong>What Makes an AI Native Team</strong><span>Saved query summarizing the defining traits of an AI native delivery team.</span></a>
+<a class='mini-card' href='viewer/index.html#page=wiki/sources/review-checklist.md' target='_blank' rel='noopener'><div class='mini-meta'><span class='mini-type'>source</span><span>2026-06-19</span></div><strong>Review Checklist</strong><span>A source page explaining how human review, acceptance criteria, and escalation paths fit together.</span></a>
+<a class='mini-card' href='viewer/index.html#page=wiki/sources/platform-spec.md' target='_blank' rel='noopener'><div class='mini-meta'><span class='mini-type'>source</span><span>2026-06-19</span></div><strong>Platform Spec</strong><span>A source page describing why execution specs and context must be treated as one delivery system.</span></a>
+<a class='mini-card' href='viewer/index.html#page=wiki/topics/model-platform.md' target='_blank' rel='noopener'><div class='mini-meta'><span class='mini-type'>topic</span><span>2026-06-19</span></div><strong>Model Platform</strong><span>Topic page for reusable context, evaluation workflows, and internal tooling.</span></a>
+        <div style="height: 12px;"></div>
+        <a class='mini-card' href='viewer/index.html#page=wiki/queries/what-makes-ai-native-team.md' target='_blank' rel='noopener'><div class='mini-meta'><span class='mini-type'>query</span><span>2026-06-19</span></div><strong>What Makes an AI Native Team</strong><span>Saved query summarizing the defining traits of an AI native delivery team.</span></a>
+<a class='mini-card' href='viewer/index.html#page=wiki/concepts/execution-spec.md' target='_blank' rel='noopener'><div class='mini-meta'><span class='mini-type'>concept</span><span>2026-06-19</span></div><strong>Execution Spec</strong><span>A reusable specification that binds task framing, context, policy, and review expectations together.</span></a>
+<a class='mini-card' href='viewer/index.html#page=wiki/decisions/execution-policy.md' target='_blank' rel='noopener'><div class='mini-meta'><span class='mini-type'>decision</span><span>2026-06-19</span></div><strong>Execution Policy</strong><span>Decision page that recommends treating context and execution as first-class platform capabilities.</span></a>
+<a class='mini-card' href='viewer/index.html#page=wiki/syntheses/delivery-system.md' target='_blank' rel='noopener'><div class='mini-meta'><span class='mini-type'>synthesis</span><span>2026-06-19</span></div><strong>Delivery System Synthesis</strong><span>Synthesis page summarizing how source, topic, concept, and decision pages reinforce one another.</span></a>
+      </section>
+      <section class="panel">
+        <h2>Next Actions</h2>
+        <p>Jump directly into the most valuable next step instead of manually deciding where to look first.</p>
+        <div class="actions">
+          <a class='action-card' href='inbox/index.html#ready' target='_blank' rel='noopener'><span class='action-tag'>Ingest</span><strong>Prioritize Ready Inbox</strong><span>There are 1 inbox items ready for final review and formal ingest. Start with the Ready section.</span></a>
+<a class='action-card' href='inbox/index.html' target='_blank' rel='noopener'><span class='action-tag'>Review</span><strong>Review Inbox Queue</strong><span>There are 1 captured items. Review the latest one before deciding whether to ingest it.</span></a>
+<a class='action-card' href='viewer/index.html' target='_blank' rel='noopener'><span class='action-tag'>Read</span><strong>Open Local Viewer</strong><span>Browse the whole wiki by page type, status, and confidence.</span></a>
+<a class='action-card' href='graph/index.html' target='_blank' rel='noopener'><span class='action-tag'>Explore</span><strong>Open Knowledge Graph</strong><span>Open the graph to inspect key pages, bridge pages, and suggested links.</span></a>
+        </div>
+      </section>
+    </div>
+    <div class="workspace-grid">
+      <section class="panel">
+        <h2>Needs Attention</h2>
+        <p>This section highlights the weakest spots in the current knowledge base, such as isolated pages, weakly connected pages, or pages missing summaries and sources.</p>
+        <ul class='bullet-list'><li>There are <strong>1</strong> high-degree thin pages. Improve their summaries and context first.</li></ul>
+      </section>
+      <section class="panel">
+        <h2>Graph Snapshot</h2>
+        <p>Read structural graph insights directly from the knowledge graph so the home page can tell you what matters most right now.</p>
+        <div class="snapshot">
+          <div class='snapshot-copy'>The current key page is AI Native Team. The main pages already have a basic connection structure. There are 1 high-degree thin pages worth strengthening first. There are 8 suggested links ready for review.</div>
+<div class='snapshot-chip'>Current key page: <strong>AI Native Team</strong></div>
+<div class='snapshot-chip'>Graph Schema v2</div><div class='snapshot-chip'>Default View knowledge</div><div class='snapshot-chip'>Knowledge Nodes 11</div><div class='snapshot-chip'>Claims 0</div><div class='snapshot-chip'>Entities 0</div><div class='snapshot-chip'>Aliased Entities 0</div><div class='snapshot-chip'>Aliases 0</div><div class='snapshot-chip'>Ambiguous Alias Groups 0</div><div class='snapshot-chip'>Ambiguous Entities 0</div><div class='snapshot-chip'>Suggested Edges 8</div>
+<div class='snapshot-chip'>Isolated Pages 0</div><div class='snapshot-chip'>Isolated Entities 0</div><div class='snapshot-chip'>Suggested Links 8</div><div class='snapshot-chip'>Ambiguous Alias Groups 0</div><div class='snapshot-chip'>Hub Stubs 1</div><div class='snapshot-chip'>Fragile Bridges 0</div><div class='snapshot-chip'>Isolated Clusters 0</div>
+<ul class='bullet-list'><li>Strengthen high-degree thin pages with better summaries, context, and sources.</li><li>Review suggested links and convert strong candidates into explicit page links.</li></ul>
+        </div>
+      </section>
+    </div>
+    <div class="section-grid">
+      <section class="panel">
+        <h2>Featured Pages</h2>
+        <p>Surface concept, decision, synthesis, and source pages first so you can spot the most valuable knowledge artifacts quickly.</p>
+        <a class='mini-card' href='viewer/index.html#page=wiki/sources/review-checklist.md' target='_blank' rel='noopener'><div class='mini-meta'><span class='mini-type'>source</span><span>2026-06-19</span></div><strong>Review Checklist</strong><span>A source page explaining how human review, acceptance criteria, and escalation paths fit together.</span></a>
+<a class='mini-card' href='viewer/index.html#page=wiki/sources/platform-spec.md' target='_blank' rel='noopener'><div class='mini-meta'><span class='mini-type'>source</span><span>2026-06-19</span></div><strong>Platform Spec</strong><span>A source page describing why execution specs and context must be treated as one delivery system.</span></a>
+<a class='mini-card' href='viewer/index.html#page=wiki/concepts/execution-spec.md' target='_blank' rel='noopener'><div class='mini-meta'><span class='mini-type'>concept</span><span>2026-06-19</span></div><strong>Execution Spec</strong><span>A reusable specification that binds task framing, context, policy, and review expectations together.</span></a>
+<a class='mini-card' href='viewer/index.html#page=wiki/decisions/execution-policy.md' target='_blank' rel='noopener'><div class='mini-meta'><span class='mini-type'>decision</span><span>2026-06-19</span></div><strong>Execution Policy</strong><span>Decision page that recommends treating context and execution as first-class platform capabilities.</span></a>
+      </section>
+      <section class="panel">
+        <h2>Outputs Overview</h2>
+        <p>The viewer and graph remain the two most important outputs, but they now live inside one unified workspace view.</p>
+        <div class="grid">
+          <a class='card' href='inbox/index.html' target='_blank' rel='noopener'><strong>Inbox Review</strong><span>Review inbox items and copy the next ingest commands</span><code>inbox/index.html</code></a>
+<a class='card' href='viewer/index.html' target='_blank' rel='noopener'><strong>Local Viewer</strong><span>Browse the entire wiki by page type, confidence, and status</span><code>viewer/index.html</code></a>
+<a class='card' href='graph/index.html' target='_blank' rel='noopener'><strong>Knowledge Graph</strong><span>Switch between knowledge, document, and suggested views to inspect content relations and candidate edges</span><code>graph/index.html</code></a>
+<a class='card' href='graph/report.html' target='_blank' rel='noopener'><strong>Graph Governance Report</strong><span>Inspect isolated pages, fragile bridges, disconnected clusters, and governance actions</span><code>graph/report.html</code></a>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>Inbox Queue</h2>
+        <p>This section shows the most recent inbox captures. Open the raw item first for a quick review, then decide whether to run ingest.</p>
+        <a class='mini-card' href='../normalized/inbox/2026-06-20-team-retrospective.md' target='_blank' rel='noopener'><div class='mini-meta'><span class='mini-type'>wechat</span><span>2026-06-23 11:26</span></div><strong>Team Retrospective</strong><span>Collect this note in inbox first, then decide whether it should become a source page.</span><span>ThinkWiki Channel · ThinkWiki Team</span><span class='quality quality-ready'>quality: ready</span><span class='quality quality-wait_completed'>capture: wait_completed</span><span class='quality quality-media'>media: localized</span><code>normalized/inbox/2026-06-20-team-retrospective.md</code></a>
+      </section>
+    </div>
+    <div class="guide">
+      <strong>Start here</strong>
+      <span>Start with `What Changed`, `Needs Attention`, and `Inbox Queue`, then decide whether to open the viewer or the graph. If you just imported or captured new material, rerun viewer and graph to refresh this home page.</span>
+    </div>
+  </main>
+</body>
+</html>

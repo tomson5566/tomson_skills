@@ -1,0 +1,22 @@
+{
+  "kind": "web",
+  "adapter": "wechat",
+  "title": "Team Retrospective",
+  "siteName": "ThinkWiki Channel",
+  "author": "ThinkWiki Team",
+  "publishDate": "2026-06-20 10:00:00",
+  "url": "https://mp.weixin.qq.com/s/thinkwiki-demo",
+  "captureMode": "wait",
+  "captureState": "wait_completed",
+  "captureReason": "ready",
+  "reviewHint": "The capture looks complete enough for final review before formal ingest.",
+  "captureAttempts": 2,
+  "captureElapsedSeconds": 1.2,
+  "mediaPolicy": "always",
+  "mediaStatus": "localized",
+  "mediaCount": 1,
+  "localizedMediaCount": 1,
+  "mediaDir": "normalized/assets/inbox/2026-06-20-team-retrospective",
+  "normalizedPath": "normalized/inbox/2026-06-20-team-retrospective.md",
+  "rawPath": "raw/inbox/2026-06-20-team-retrospective.md"
+}

@@ -1,0 +1,285 @@
+{
+  "generated_at": "2026-06-23",
+  "schemaVersion": "2",
+  "view": "knowledge",
+  "summary": "The current key page is AI Native Team. The main pages already have a basic connection structure. There are 1 high-degree thin pages worth strengthening first. There are 8 suggested links ready for review.",
+  "stats": {
+    "view": "knowledge",
+    "nodeCount": 11,
+    "edgeCount": 41,
+    "entityCount": 0,
+    "aliasCount": 0,
+    "aliasedEntityCount": 0,
+    "ambiguousAliasGroupCount": 0,
+    "ambiguousEntityCount": 0,
+    "isolatedEntityCount": 0,
+    "isolatedPageCount": 0,
+    "weakPageCount": 0,
+    "bridgePageCount": 5,
+    "suggestedLinkCount": 8,
+    "hubStubCount": 1,
+    "fragileBridgeCount": 0,
+    "isolatedClusterCount": 0,
+    "componentCount": 1,
+    "averageDegree": 7.45
+  },
+  "topActions": [
+    "Strengthen high-degree thin pages with better summaries, context, and sources.",
+    "Review suggested links and convert strong candidates into explicit page links."
+  ],
+  "topNodes": [
+    {
+      "id": "wiki/concepts/ai-native-team.md",
+      "title": "AI Native Team",
+      "type": "concept",
+      "score": 70,
+      "reason": "Degree 14, inbound 7, spanning 6 neighbor types."
+    },
+    {
+      "id": "wiki/concepts/execution-spec.md",
+      "title": "Execution Spec",
+      "type": "concept",
+      "score": 50,
+      "reason": "Degree 10, inbound 5, spanning 4 neighbor types."
+    },
+    {
+      "id": "wiki/decisions/execution-policy.md",
+      "title": "Execution Policy",
+      "type": "decision",
+      "score": 46,
+      "reason": "Degree 8, inbound 6, spanning 4 neighbor types."
+    },
+    {
+      "id": "wiki/sources/eval-loops.md",
+      "title": "Eval Loop Notes",
+      "type": "source",
+      "score": 44,
+      "reason": "Degree 8, inbound 6, spanning 3 neighbor types."
+    },
+    {
+      "id": "wiki/sources/platform-spec.md",
+      "title": "Platform Spec",
+      "type": "source",
+      "score": 42,
+      "reason": "Degree 8, inbound 5, spanning 3 neighbor types."
+    },
+    {
+      "id": "wiki/topics/eval-loops.md",
+      "title": "Eval Loops",
+      "type": "topic",
+      "score": 38,
+      "reason": "Degree 8, inbound 3, spanning 3 neighbor types."
+    }
+  ],
+  "bridgeNodes": [
+    {
+      "id": "wiki/concepts/ai-native-team.md",
+      "title": "AI Native Team",
+      "type": "concept",
+      "score": 35,
+      "reason": "Connects 6 page types and works well as a bridge."
+    },
+    {
+      "id": "wiki/concepts/execution-spec.md",
+      "title": "Execution Spec",
+      "type": "concept",
+      "score": 25,
+      "reason": "Connects 4 page types and works well as a bridge."
+    },
+    {
+      "id": "wiki/decisions/execution-policy.md",
+      "title": "Execution Policy",
+      "type": "decision",
+      "score": 23,
+      "reason": "Connects 4 page types and works well as a bridge."
+    },
+    {
+      "id": "wiki/sources/eval-loops.md",
+      "title": "Eval Loop Notes",
+      "type": "source",
+      "score": 20,
+      "reason": "Connects 3 page types and works well as a bridge."
+    },
+    {
+      "id": "wiki/topics/eval-loops.md",
+      "title": "Eval Loops",
+      "type": "topic",
+      "score": 20,
+      "reason": "Connects 3 page types and works well as a bridge."
+    }
+  ],
+  "isolatedPages": [],
+  "isolatedEntities": [],
+  "ambiguousEntityMergeCandidates": [],
+  "hubStubs": [
+    {
+      "id": "wiki/topics/model-platform.md",
+      "title": "Model Platform",
+      "type": "topic",
+      "degree": 8,
+      "summaryLength": 76,
+      "reason": "Degree is 8, but the summary is only 76 characters long."
+    }
+  ],
+  "fragileBridges": [],
+  "isolatedClusters": [],
+  "suggestedLinks": [
+    {
+      "source": "wiki/decisions/context-budget.md",
+      "sourceLabel": "Context Budget",
+      "target": "wiki/decisions/execution-policy.md",
+      "targetLabel": "Execution Policy",
+      "score": 17,
+      "reasons": [
+        "shared sources",
+        "shared keywords",
+        "shared graph neighbors"
+      ],
+      "sharedTokens": [
+        "context",
+        "decision",
+        "decisions",
+        "page"
+      ],
+      "sharedSources": [
+        "wiki/concepts/execution-spec.md"
+      ]
+    },
+    {
+      "source": "wiki/topics/eval-loops.md",
+      "sourceLabel": "Eval Loops",
+      "target": "wiki/topics/model-platform.md",
+      "targetLabel": "Model Platform",
+      "score": 17,
+      "reasons": [
+        "shared sources",
+        "shared keywords",
+        "shared graph neighbors"
+      ],
+      "sharedTokens": [
+        "for",
+        "model",
+        "page",
+        "topic"
+      ],
+      "sharedSources": [
+        "wiki/sources/eval-loops.md"
+      ]
+    },
+    {
+      "source": "wiki/syntheses/delivery-system.md",
+      "sourceLabel": "Delivery System Synthesis",
+      "target": "wiki/topics/model-platform.md",
+      "targetLabel": "Model Platform",
+      "score": 13,
+      "reasons": [
+        "shared sources",
+        "shared keywords",
+        "shared graph neighbors"
+      ],
+      "sharedTokens": [
+        "page",
+        "topic"
+      ],
+      "sharedSources": [
+        "wiki/sources/eval-loops.md",
+        "wiki/sources/platform-spec.md"
+      ]
+    },
+    {
+      "source": "wiki/queries/what-makes-ai-native-team.md",
+      "sourceLabel": "What Makes an AI Native Team",
+      "target": "wiki/syntheses/delivery-system.md",
+      "targetLabel": "Delivery System Synthesis",
+      "score": 13,
+      "reasons": [
+        "shared sources",
+        "shared keywords",
+        "shared graph neighbors"
+      ],
+      "sharedTokens": [
+        "delivery",
+        "summarizing"
+      ],
+      "sharedSources": [
+        "wiki/concepts/ai-native-team.md",
+        "wiki/decisions/execution-policy.md"
+      ]
+    },
+    {
+      "source": "wiki/decisions/context-budget.md",
+      "sourceLabel": "Context Budget",
+      "target": "wiki/syntheses/delivery-system.md",
+      "targetLabel": "Delivery System Synthesis",
+      "score": 12,
+      "reasons": [
+        "shared sources",
+        "shared keywords",
+        "shared graph neighbors"
+      ],
+      "sharedTokens": [
+        "decision",
+        "page"
+      ],
+      "sharedSources": [
+        "wiki/sources/eval-loops.md"
+      ]
+    },
+    {
+      "source": "wiki/decisions/context-budget.md",
+      "sourceLabel": "Context Budget",
+      "target": "wiki/topics/model-platform.md",
+      "targetLabel": "Model Platform",
+      "score": 12,
+      "reasons": [
+        "shared sources",
+        "shared keywords",
+        "shared graph neighbors"
+      ],
+      "sharedTokens": [
+        "context",
+        "page"
+      ],
+      "sharedSources": [
+        "wiki/sources/eval-loops.md"
+      ]
+    },
+    {
+      "source": "wiki/syntheses/delivery-system.md",
+      "sourceLabel": "Delivery System Synthesis",
+      "target": "wiki/topics/eval-loops.md",
+      "targetLabel": "Eval Loops",
+      "score": 12,
+      "reasons": [
+        "shared sources",
+        "shared keywords",
+        "shared graph neighbors"
+      ],
+      "sharedTokens": [
+        "page",
+        "topic"
+      ],
+      "sharedSources": [
+        "wiki/sources/eval-loops.md"
+      ]
+    },
+    {
+      "source": "wiki/decisions/execution-policy.md",
+      "sourceLabel": "Execution Policy",
+      "target": "wiki/sources/platform-spec.md",
+      "targetLabel": "Platform Spec",
+      "score": 10,
+      "reasons": [
+        "shared keywords",
+        "shared graph neighbors"
+      ],
+      "sharedTokens": [
+        "context",
+        "execution",
+        "page",
+        "platform"
+      ],
+      "sharedSources": []
+    }
+  ]
+}

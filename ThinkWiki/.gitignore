@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+/.venv/
+.DS_Store
+/.tmp/
+/raw/
+/wiki/
+/output/
+/.wiki-schema.md
+/index.md
+/log.md
+/overview.md
+/purpose.md
+/AGENTS.md
+/.audit_runtime.py
+/.audit_runtime.log

@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ThinkWiki Graph</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121935;
+      --panel-soft: #182142;
+      --text: #edf2ff;
+      --muted: #a8b3cf;
+      --border: rgba(255, 255, 255, 0.1);
+      --accent: #8ab4ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #0b1020 0%, #10172f 100%);
+      color: var(--text);
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 300px 1fr 340px;
+      min-height: 100vh;
+    }
+    .panel {
+      padding: 20px;
+      overflow: auto;
+      background: rgba(9, 13, 28, 0.82);
+    }
+    .panel.left {
+      border-right: 1px solid var(--border);
+    }
+    .panel.right {
+      border-left: 1px solid var(--border);
+    }
+    .stage {
+      overflow: auto;
+      padding: 16px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .title {
+      font-size: 1.15rem;
+      margin: 0 0 10px;
+    }
+    .lead, .muted {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .stat {
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+    }
+    .stat strong {
+      display: block;
+      font-size: 1.15rem;
+    }
+    input, select, button {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+    button {
+      cursor: pointer;
+    }
+    .legend-item {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+    .edge-swatch {
+      width: 22px;
+      height: 0;
+      border-top-width: 2px;
+      border-top-style: solid;
+      display: inline-block;
+      opacity: 0.9;
+    }
+    .toggle-list {
+      display: grid;
+      gap: 10px;
+    }
+    .focus-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .focus-chip {
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      color: var(--muted);
+      padding: 9px 12px;
+      font-size: 0.92rem;
+      text-align: center;
+    }
+    .focus-chip.active {
+      border-color: rgba(138,180,255,0.55);
+      color: var(--text);
+      background: rgba(138,180,255,0.12);
+    }
+    .mode-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .toggle-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .toggle-item input {
+      width: auto;
+      margin: 0;
+      accent-color: #8ab4ff;
+    }
+    .chip {
+      display: inline-block;
+      margin: 0 8px 8px 0;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .detail-row {
+      margin-bottom: 12px;
+    }
+    .detail-row strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+    .detail-stats {
+      display: grid;
+      gap: 10px;
+      margin: 12px 0;
+    }
+    .detail-stat-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 0.94rem;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .empty {
+      color: var(--muted);
+      padding: 16px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+    }
+    .sources {
+      max-height: 220px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .action {
+      display: inline-block;
+      margin-top: 10px;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .section-title {
+      margin: 18px 0 10px;
+      font-size: 0.95rem;
+    }
+    .insight-summary {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .insight-list {
+      display: grid;
+      gap: 10px;
+    }
+    .insight-item {
+      width: 100%;
+      text-align: left;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 12px;
+      margin: 0;
+    }
+    .insight-item.active {
+      border-color: rgba(138,180,255,0.52);
+      background: rgba(138,180,255,0.12);
+    }
+    .insight-item strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.95rem;
+    }
+    .insight-meta {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+    .insight-score {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.05);
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .insight-reasons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .insight-reason {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    svg {
+      display: block;
+      background:
+        radial-gradient(circle at center, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+      background-size: 24px 24px;
+      border-radius: 16px;
+    }
+    @media (max-width: 1100px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .panel.left, .panel.right {
+        border: 0;
+        border-bottom: 1px solid var(--border);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="panel left">
+      <div class="card">
+        <h1 class="title">ThinkWiki Graph</h1>
+        <p class="lead">Offline graph explorer for ThinkWiki. The default view is the content knowledge graph, where you can search, filter, and inspect page structure plus semantic content relations.</p>
+      </div>
+      <div class="card">
+        <div class="stats">
+          <div class="stat"><strong id="nodeCountValue">11</strong><span class="muted">Nodes</span></div>
+          <div class="stat"><strong id="edgeCountValue">41</strong><span class="muted">Edges</span></div>
+        </div>
+        <p class="muted">Wiki: demo-wiki</p>
+        <p class="muted">Schema: <span id="schemaVersionValue">2</span></p>
+        <p class="muted">View: <span id="viewNameValue">knowledge</span></p>
+        <p class="muted">Generated: 2026-06-23</p>
+      </div>
+      <div class="card">
+        <h2 class="title">Graph Modes</h2>
+        <div class="mode-row">
+          <button type="button" class="focus-chip active" data-view-mode="knowledge">knowledge</button>
+          <button type="button" class="focus-chip" data-view-mode="document">document</button>
+          <button type="button" class="focus-chip" data-view-mode="suggested">suggested</button>
+        </div>
+        <p class="muted">Knowledge shows semantic content relations, Document shows file and page relations, and Suggested shows candidate content edges.</p>
+      </div>
+      <div class="card">
+        <h2 class="title">Quick Focus</h2>
+        <div class="focus-row">
+          <button type="button" class="focus-chip active" data-focus-type="">All</button>
+          <button type="button" class="focus-chip" data-focus-type="concept">concepts</button>
+          <button type="button" class="focus-chip" data-focus-type="decision">decisions</button>
+          <button type="button" class="focus-chip" data-focus-type="source">sources</button>
+          <button type="button" class="focus-chip" data-focus-type="claim">claims</button>
+        </div>
+      </div>
+      <div class="card">
+        <input id="search" type="search" placeholder="Search title, path, summary">
+        <select id="scopeFilter">
+          <option value="all">Whole Graph</option>
+          <option value="1">1-hop neighborhood</option>
+          <option value="2">2-hop neighborhood</option>
+        </select>
+        <select id="typeFilter">
+          <option value="">All Types</option>
+          <option value="source">source</option>
+          <option value="topic">topic</option>
+          <option value="concept">concept</option>
+          <option value="entity">entity</option>
+          <option value="decision">decision</option>
+          <option value="synthesis">synthesis</option>
+          <option value="query">query</option>
+          <option value="claim">claim</option>
+          <option value="raw">raw</option>
+          <option value="file">file</option>
+        </select>
+        <select id="statusFilter">
+          <option value="">All Statuses</option>
+          <option value="active">active</option>
+          <option value="stale">stale</option>
+          <option value="archived">archived</option>
+          <option value="superseded">superseded</option>
+        </select>
+        <select id="confidenceFilter">
+          <option value="">All Confidence Levels</option>
+          <option value="verified">verified</option>
+          <option value="extracted">extracted</option>
+          <option value="mixed">mixed</option>
+          <option value="inferred">inferred</option>
+        </select>
+        <button id="resetBtn">Reset View</button>
+      </div>
+      <div class="card">
+        <h2 class="title">Legend</h2>
+        <div class="legend-item"><span class="dot" style="background:#60a5fa"></span>source</div>
+        <div class="legend-item"><span class="dot" style="background:#34d399"></span>topic</div>
+        <div class="legend-item"><span class="dot" style="background:#a78bfa"></span>concept</div>
+        <div class="legend-item"><span class="dot" style="background:#f472b6"></span>entity</div>
+        <div class="legend-item"><span class="dot" style="background:#fb923c"></span>decision</div>
+        <div class="legend-item"><span class="dot" style="background:#22d3ee"></span>synthesis</div>
+        <div class="legend-item"><span class="dot" style="background:#cbd5e1"></span>query</div>
+        <div class="legend-item"><span class="dot" style="background:#facc15"></span>claim</div>
+        <div class="legend-item"><span class="dot" style="background:#94a3b8"></span>raw / file</div>
+      </div>
+      <div class="card">
+        <h2 class="title">Edge Legend</h2>
+        <div class="legend-item"><span class="edge-swatch" style="border-top-color:rgba(138,180,255,0.85)"></span>references</div>
+        <div class="legend-item"><span class="edge-swatch" style="border-top-color:rgba(255,255,255,0.65)"></span>links_to</div>
+        <div class="legend-item"><span class="edge-swatch" style="border-top-color:rgba(52,211,153,0.9); border-top-style:dashed;"></span>includes</div>
+        <div class="legend-item"><span class="edge-swatch" style="border-top-color:rgba(251,146,60,0.9); border-top-style:dashed;"></span>cites</div>
+        <div class="legend-item"><span class="edge-swatch" style="border-top-color:rgba(96,165,250,0.9); border-top-style:dashed;"></span>about</div>
+        <div class="legend-item"><span class="edge-swatch" style="border-top-color:rgba(52,211,153,0.9)"></span>belongs_to</div>
+        <div class="legend-item"><span class="edge-swatch" style="border-top-color:rgba(255,255,255,0.8)"></span>related_to</div>
+        <div class="legend-item"><span class="edge-swatch" style="border-top-color:rgba(167,139,250,0.9); border-top-style:dashed;"></span>depends_on</div>
+        <div class="legend-item"><span class="edge-swatch" style="border-top-color:rgba(250,204,21,0.95)"></span>asserts</div>
+        <div class="legend-item"><span class="edge-swatch" style="border-top-color:rgba(34,211,238,0.95)"></span>supports</div>
+        <div class="legend-item"><span class="edge-swatch" style="border-top-color:rgba(244,114,182,0.95); border-top-style:dashed;"></span>contradicts</div>
+        <div class="legend-item"><span class="edge-swatch" style="border-top-color:rgba(138,180,255,0.95); border-top-style:dashed;"></span>suggests_related_to</div>
+      </div>
+      <div class="card">
+        <h2 class="title">Edge Filters</h2>
+        <div class="toggle-list">
+          <label class="toggle-item"><input type="checkbox" id="edgeType-references" checked>references</label>
+          <label class="toggle-item"><input type="checkbox" id="edgeType-links_to" checked>links_to</label>
+          <label class="toggle-item"><input type="checkbox" id="edgeType-includes" checked>includes</label>
+          <label class="toggle-item"><input type="checkbox" id="edgeType-cites" checked>cites</label>
+          <label class="toggle-item"><input type="checkbox" id="edgeType-about" checked>about</label>
+          <label class="toggle-item"><input type="checkbox" id="edgeType-belongs_to" checked>belongs_to</label>
+          <label class="toggle-item"><input type="checkbox" id="edgeType-related_to" checked>related_to</label>
+          <label class="toggle-item"><input type="checkbox" id="edgeType-depends_on" checked>depends_on</label>
+          <label class="toggle-item"><input type="checkbox" id="edgeType-asserts" checked>asserts</label>
+          <label class="toggle-item"><input type="checkbox" id="edgeType-supports" checked>supports</label>
+          <label class="toggle-item"><input type="checkbox" id="edgeType-contradicts" checked>contradicts</label>
+          <label class="toggle-item"><input type="checkbox" id="edgeType-suggests_related_to" checked>suggests_related_to</label>
+        </div>
+      </div>
+    </aside>
+    <main class="stage" id="graphStage">
+      <svg id="graph" viewBox="0 0 1100 760" width="1100" height="760"></svg>
+    </main>
+    <aside class="panel right">
+      <div class="card">
+        <h2 class="title">Graph Insights</h2>
+        <div id="insightsPanel" class="empty">Loading graph insights...</div>
+      </div>
+      <div class="card">
+        <h2 class="title">Node Details</h2>
+        <div id="detailPanel" class="empty">Click a node to inspect its summary, sources, status, and page path.</div>
+      </div>
+    </aside>
+  </div>
+  <script>
+    const payload = {"generatedAt": "2026-06-23", "rootName": "demo-wiki", "viewName": "knowledge", "defaultView": "knowledge", "schemaVersion": "2", "availableViews": ["document", "knowledge", "suggested"], "views": {"document": {"nodeCount": 14, "edgeCount": 44, "canvasWidth": 1100, "canvasHeight": 760, "nodes": [{"id": "raw/articles/eval-loops.md", "label": "eval-loops", "type": "raw", "summary": "", "confidence": "", "status": "", "updated": "", "path": "raw/articles/eval-loops.md", "sources": [], "nodeType": "page", "pageType": "raw", "aliases": [], "maturity": "", "x": 90, "y": 84, "color": "#94a3b8"}, {"id": "raw/articles/platform-spec.md", "label": "platform-spec", "type": "raw", "summary": "", "confidence": "", "status": "", "updated": "", "path": "raw/articles/platform-spec.md", "sources": [], "nodeType": "page", "pageType": "raw", "aliases": [], "maturity": "", "x": 90, "y": 176, "color": "#94a3b8"}, {"id": "raw/articles/review-checklist.md", "label": "review-checklist", "type": "raw", "summary": "", "confidence": "", "status": "", "updated": "", "path": "raw/articles/review-checklist.md", "sources": [], "nodeType": "page", "pageType": "raw", "aliases": [], "maturity": "", "x": 90, "y": 268, "color": "#94a3b8"}, {"id": "wiki/concepts/ai-native-team.md", "label": "AI Native Team", "type": "concept", "summary": "A team model that treats models, context, and workflow as one operating system for delivery.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/concepts/ai-native-team.md", "sources": ["wiki/sources/platform-spec.md", "wiki/topics/model-platform.md", "wiki/topics/eval-loops.md"], "nodeType": "page", "pageType": "concept", "aliases": [], "maturity": "", "x": 558, "y": 84, "color": "#a78bfa"}, {"id": "wiki/concepts/execution-spec.md", "label": "Execution Spec", "type": "concept", "summary": "A reusable specification that binds task framing, context, policy, and review expectations together.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/concepts/execution-spec.md", "sources": ["wiki/sources/platform-spec.md", "wiki/sources/review-checklist.md"], "nodeType": "page", "pageType": "concept", "aliases": [], "maturity": "", "x": 558, "y": 176, "color": "#a78bfa"}, {"id": "wiki/decisions/context-budget.md", "label": "Context Budget", "type": "decision", "summary": "Decision page that limits context sprawl and requires explicit budget ownership in prompts and tools.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/decisions/context-budget.md", "sources": ["wiki/sources/eval-loops.md", "wiki/concepts/execution-spec.md"], "nodeType": "page", "pageType": "decision", "aliases": [], "maturity": "", "x": 722, "y": 176, "color": "#fb923c"}, {"id": "wiki/decisions/execution-policy.md", "label": "Execution Policy", "type": "decision", "summary": "Decision page that recommends treating context and execution as first-class platform capabilities.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/decisions/execution-policy.md", "sources": ["wiki/concepts/ai-native-team.md", "wiki/concepts/execution-spec.md"], "nodeType": "page", "pageType": "decision", "aliases": [], "maturity": "", "x": 722, "y": 84, "color": "#fb923c"}, {"id": "wiki/queries/what-makes-ai-native-team.md", "label": "What Makes an AI Native Team", "type": "query", "summary": "Saved query summarizing the defining traits of an AI native delivery team.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/queries/what-makes-ai-native-team.md", "sources": ["wiki/concepts/ai-native-team.md", "wiki/decisions/execution-policy.md"], "nodeType": "page", "pageType": "query", "aliases": [], "maturity": "", "x": 778, "y": 360, "color": "#cbd5e1"}, {"id": "wiki/sources/eval-loops.md", "label": "Eval Loop Notes", "type": "source", "summary": "Notes from an internal workshop on evaluation loops, review lanes, and release confidence.", "confidence": "extracted", "status": "active", "updated": "2026-06-19", "path": "wiki/sources/eval-loops.md", "sources": ["raw/articles/eval-loops.md"], "nodeType": "page", "pageType": "source", "aliases": [], "maturity": "", "x": 310, "y": 84, "color": "#60a5fa"}, {"id": "wiki/sources/platform-spec.md", "label": "Platform Spec", "type": "source", "summary": "A source page describing why execution specs and context must be treated as one delivery system.", "confidence": "extracted", "status": "active", "updated": "2026-06-19", "path": "wiki/sources/platform-spec.md", "sources": ["raw/articles/platform-spec.md"], "nodeType": "page", "pageType": "source", "aliases": [], "maturity": "", "x": 310, "y": 176, "color": "#60a5fa"}, {"id": "wiki/sources/review-checklist.md", "label": "Review Checklist", "type": "source", "summary": "A source page explaining how human review, acceptance criteria, and escalation paths fit together.", "confidence": "extracted", "status": "active", "updated": "2026-06-19", "path": "wiki/sources/review-checklist.md", "sources": ["raw/articles/review-checklist.md"], "nodeType": "page", "pageType": "source", "aliases": [], "maturity": "", "x": 310, "y": 268, "color": "#60a5fa"}, {"id": "wiki/syntheses/delivery-system.md", "label": "Delivery System Synthesis", "type": "synthesis", "summary": "Synthesis page summarizing how source, topic, concept, and decision pages reinforce one another.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/syntheses/delivery-system.md", "sources": ["wiki/sources/platform-spec.md", "wiki/sources/eval-loops.md", "wiki/concepts/ai-native-team.md", "wiki/decisions/execution-policy.md"], "nodeType": "page", "pageType": "synthesis", "aliases": [], "maturity": "", "x": 778, "y": 268, "color": "#22d3ee"}, {"id": "wiki/topics/eval-loops.md", "label": "Eval Loops", "type": "topic", "summary": "Topic page about review lanes, regression checks, and feedback loops for model releases.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/topics/eval-loops.md", "sources": ["wiki/sources/eval-loops.md", "wiki/sources/review-checklist.md"], "nodeType": "page", "pageType": "topic", "aliases": [], "maturity": "", "x": 502, "y": 268, "color": "#34d399"}, {"id": "wiki/topics/model-platform.md", "label": "Model Platform", "type": "topic", "summary": "Topic page for reusable context, evaluation workflows, and internal tooling.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/topics/model-platform.md", "sources": ["wiki/sources/platform-spec.md", "wiki/sources/eval-loops.md"], "nodeType": "page", "pageType": "topic", "aliases": [], "maturity": "", "x": 502, "y": 360, "color": "#34d399"}], "edges": [{"source": "wiki/concepts/ai-native-team.md", "target": "wiki/concepts/execution-spec.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/decisions/execution-policy.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/topics/eval-loops.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/topics/model-platform.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/sources/platform-spec.md", "type": "references", "relation": "references"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/topics/eval-loops.md", "type": "references", "relation": "references"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/topics/model-platform.md", "type": "references", "relation": "references"}, {"source": "wiki/concepts/execution-spec.md", "target": "wiki/concepts/ai-native-team.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/concepts/execution-spec.md", "target": "wiki/decisions/context-budget.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/concepts/execution-spec.md", "target": "wiki/decisions/execution-policy.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/concepts/execution-spec.md", "target": "wiki/sources/platform-spec.md", "type": "references", "relation": "references"}, {"source": "wiki/concepts/execution-spec.md", "target": "wiki/sources/review-checklist.md", "type": "references", "relation": "references"}, {"source": "wiki/decisions/context-budget.md", "target": "wiki/concepts/execution-spec.md", "type": "references", "relation": "references"}, {"source": "wiki/decisions/context-budget.md", "target": "wiki/sources/eval-loops.md", "type": "references", "relation": "references"}, {"source": "wiki/decisions/execution-policy.md", "target": "wiki/concepts/ai-native-team.md", "type": "references", "relation": "references"}, {"source": "wiki/decisions/execution-policy.md", "target": "wiki/concepts/execution-spec.md", "type": "references", "relation": "references"}, {"source": "wiki/queries/what-makes-ai-native-team.md", "target": "wiki/concepts/ai-native-team.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/queries/what-makes-ai-native-team.md", "target": "wiki/decisions/execution-policy.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/queries/what-makes-ai-native-team.md", "target": "wiki/concepts/ai-native-team.md", "type": "references", "relation": "references"}, {"source": "wiki/queries/what-makes-ai-native-team.md", "target": "wiki/decisions/execution-policy.md", "type": "references", "relation": "references"}, {"source": "wiki/sources/eval-loops.md", "target": "raw/articles/eval-loops.md", "type": "cites", "relation": "cites"}, {"source": "wiki/sources/eval-loops.md", "target": "wiki/decisions/context-budget.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/sources/eval-loops.md", "target": "wiki/topics/eval-loops.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/sources/platform-spec.md", "target": "raw/articles/platform-spec.md", "type": "cites", "relation": "cites"}, {"source": "wiki/sources/platform-spec.md", "target": "wiki/concepts/ai-native-team.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/sources/platform-spec.md", "target": "wiki/concepts/execution-spec.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/sources/platform-spec.md", "target": "wiki/topics/model-platform.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/sources/review-checklist.md", "target": "raw/articles/review-checklist.md", "type": "cites", "relation": "cites"}, {"source": "wiki/sources/review-checklist.md", "target": "wiki/concepts/ai-native-team.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/sources/review-checklist.md", "target": "wiki/decisions/execution-policy.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/syntheses/delivery-system.md", "target": "wiki/concepts/ai-native-team.md", "type": "references", "relation": "references"}, {"source": "wiki/syntheses/delivery-system.md", "target": "wiki/decisions/execution-policy.md", "type": "references", "relation": "references"}, {"source": "wiki/syntheses/delivery-system.md", "target": "wiki/sources/eval-loops.md", "type": "references", "relation": "references"}, {"source": "wiki/syntheses/delivery-system.md", "target": "wiki/sources/platform-spec.md", "type": "references", "relation": "references"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/sources/eval-loops.md", "type": "includes", "relation": "includes"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/sources/review-checklist.md", "type": "includes", "relation": "includes"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/decisions/context-budget.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/sources/eval-loops.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/sources/review-checklist.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/topics/model-platform.md", "target": "wiki/sources/eval-loops.md", "type": "includes", "relation": "includes"}, {"source": "wiki/topics/model-platform.md", "target": "wiki/sources/platform-spec.md", "type": "includes", "relation": "includes"}, {"source": "wiki/topics/model-platform.md", "target": "wiki/concepts/execution-spec.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/topics/model-platform.md", "target": "wiki/sources/eval-loops.md", "type": "links_to", "relation": "links_to"}, {"source": "wiki/topics/model-platform.md", "target": "wiki/sources/platform-spec.md", "type": "links_to", "relation": "links_to"}], "insights": {"stats": {"nodeCount": 11, "edgeCount": 41, "isolatedCount": 0, "weakCount": 0, "averageDegree": 7.45}, "topNodes": [{"id": "wiki/concepts/ai-native-team.md", "title": "AI Native Team", "type": "concept", "score": 70, "reason": "Degree 14, inbound 7, spanning 6 neighbor types."}, {"id": "wiki/concepts/execution-spec.md", "title": "Execution Spec", "type": "concept", "score": 50, "reason": "Degree 10, inbound 5, spanning 4 neighbor types."}, {"id": "wiki/decisions/execution-policy.md", "title": "Execution Policy", "type": "decision", "score": 46, "reason": "Degree 8, inbound 6, spanning 4 neighbor types."}, {"id": "wiki/sources/eval-loops.md", "title": "Eval Loop Notes", "type": "source", "score": 45, "reason": "Degree 8, inbound 6, spanning 3 neighbor types."}, {"id": "wiki/sources/platform-spec.md", "title": "Platform Spec", "type": "source", "score": 43, "reason": "Degree 8, inbound 5, spanning 3 neighbor types."}, {"id": "wiki/topics/eval-loops.md", "title": "Eval Loops", "type": "topic", "score": 39, "reason": "Degree 8, inbound 3, spanning 3 neighbor types."}], "bridgeNodes": [{"id": "wiki/concepts/ai-native-team.md", "title": "AI Native Team", "type": "concept", "score": 35, "reason": "Connects 6 page types and works well as a bridge."}, {"id": "wiki/concepts/execution-spec.md", "title": "Execution Spec", "type": "concept", "score": 25, "reason": "Connects 4 page types and works well as a bridge."}, {"id": "wiki/decisions/execution-policy.md", "title": "Execution Policy", "type": "decision", "score": 23, "reason": "Connects 4 page types and works well as a bridge."}, {"id": "wiki/sources/eval-loops.md", "title": "Eval Loop Notes", "type": "source", "score": 22, "reason": "Connects 3 page types and works well as a bridge."}, {"id": "wiki/topics/eval-loops.md", "title": "Eval Loops", "type": "topic", "score": 22, "reason": "Connects 3 page types and works well as a bridge."}], "isolatedNodes": [], "suggestedLinks": [{"source": "wiki/decisions/context-budget.md", "sourceLabel": "Context Budget", "target": "wiki/decisions/execution-policy.md", "targetLabel": "Execution Policy", "score": 17, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["context", "decision", "decisions", "page"], "sharedSources": ["wiki/concepts/execution-spec.md"]}, {"source": "wiki/topics/eval-loops.md", "sourceLabel": "Eval Loops", "target": "wiki/topics/model-platform.md", "targetLabel": "Model Platform", "score": 17, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["for", "model", "page", "topic"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/syntheses/delivery-system.md", "sourceLabel": "Delivery System Synthesis", "target": "wiki/topics/model-platform.md", "targetLabel": "Model Platform", "score": 13, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["page", "topic"], "sharedSources": ["wiki/sources/eval-loops.md", "wiki/sources/platform-spec.md"]}, {"source": "wiki/queries/what-makes-ai-native-team.md", "sourceLabel": "What Makes an AI Native Team", "target": "wiki/syntheses/delivery-system.md", "targetLabel": "Delivery System Synthesis", "score": 13, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["delivery", "summarizing"], "sharedSources": ["wiki/concepts/ai-native-team.md", "wiki/decisions/execution-policy.md"]}, {"source": "wiki/decisions/context-budget.md", "sourceLabel": "Context Budget", "target": "wiki/syntheses/delivery-system.md", "targetLabel": "Delivery System Synthesis", "score": 12, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["decision", "page"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/decisions/context-budget.md", "sourceLabel": "Context Budget", "target": "wiki/topics/model-platform.md", "targetLabel": "Model Platform", "score": 12, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["context", "page"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/syntheses/delivery-system.md", "sourceLabel": "Delivery System Synthesis", "target": "wiki/topics/eval-loops.md", "targetLabel": "Eval Loops", "score": 12, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["page", "topic"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/decisions/execution-policy.md", "sourceLabel": "Execution Policy", "target": "wiki/sources/platform-spec.md", "targetLabel": "Platform Spec", "score": 10, "reasons": ["shared keywords", "shared graph neighbors"], "sharedTokens": ["context", "execution", "page", "platform"], "sharedSources": []}], "summary": "The current key page is AI Native Team. The main pages already have a basic connection structure. You can review 8 suggested links next."}}, "knowledge": {"nodeCount": 11, "edgeCount": 41, "canvasWidth": 1100, "canvasHeight": 760, "nodes": [{"id": "wiki/concepts/ai-native-team.md", "label": "AI Native Team", "type": "concept", "summary": "A team model that treats models, context, and workflow as one operating system for delivery.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/concepts/ai-native-team.md", "sources": ["wiki/sources/platform-spec.md", "wiki/topics/model-platform.md", "wiki/topics/eval-loops.md"], "nodeType": "page", "pageType": "concept", "aliases": [], "maturity": "", "x": 558, "y": 84, "color": "#a78bfa"}, {"id": "wiki/concepts/execution-spec.md", "label": "Execution Spec", "type": "concept", "summary": "A reusable specification that binds task framing, context, policy, and review expectations together.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/concepts/execution-spec.md", "sources": ["wiki/sources/platform-spec.md", "wiki/sources/review-checklist.md"], "nodeType": "page", "pageType": "concept", "aliases": [], "maturity": "", "x": 558, "y": 176, "color": "#a78bfa"}, {"id": "wiki/decisions/context-budget.md", "label": "Context Budget", "type": "decision", "summary": "Decision page that limits context sprawl and requires explicit budget ownership in prompts and tools.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/decisions/context-budget.md", "sources": ["wiki/sources/eval-loops.md", "wiki/concepts/execution-spec.md"], "nodeType": "page", "pageType": "decision", "aliases": [], "maturity": "", "x": 722, "y": 176, "color": "#fb923c"}, {"id": "wiki/decisions/execution-policy.md", "label": "Execution Policy", "type": "decision", "summary": "Decision page that recommends treating context and execution as first-class platform capabilities.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/decisions/execution-policy.md", "sources": ["wiki/concepts/ai-native-team.md", "wiki/concepts/execution-spec.md"], "nodeType": "page", "pageType": "decision", "aliases": [], "maturity": "", "x": 722, "y": 84, "color": "#fb923c"}, {"id": "wiki/queries/what-makes-ai-native-team.md", "label": "What Makes an AI Native Team", "type": "query", "summary": "Saved query summarizing the defining traits of an AI native delivery team.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/queries/what-makes-ai-native-team.md", "sources": ["wiki/concepts/ai-native-team.md", "wiki/decisions/execution-policy.md"], "nodeType": "page", "pageType": "query", "aliases": [], "maturity": "", "x": 778, "y": 360, "color": "#cbd5e1"}, {"id": "wiki/sources/eval-loops.md", "label": "Eval Loop Notes", "type": "source", "summary": "Notes from an internal workshop on evaluation loops, review lanes, and release confidence.", "confidence": "extracted", "status": "active", "updated": "2026-06-19", "path": "wiki/sources/eval-loops.md", "sources": ["raw/articles/eval-loops.md"], "nodeType": "page", "pageType": "source", "aliases": [], "maturity": "", "x": 310, "y": 84, "color": "#60a5fa"}, {"id": "wiki/sources/platform-spec.md", "label": "Platform Spec", "type": "source", "summary": "A source page describing why execution specs and context must be treated as one delivery system.", "confidence": "extracted", "status": "active", "updated": "2026-06-19", "path": "wiki/sources/platform-spec.md", "sources": ["raw/articles/platform-spec.md"], "nodeType": "page", "pageType": "source", "aliases": [], "maturity": "", "x": 310, "y": 176, "color": "#60a5fa"}, {"id": "wiki/sources/review-checklist.md", "label": "Review Checklist", "type": "source", "summary": "A source page explaining how human review, acceptance criteria, and escalation paths fit together.", "confidence": "extracted", "status": "active", "updated": "2026-06-19", "path": "wiki/sources/review-checklist.md", "sources": ["raw/articles/review-checklist.md"], "nodeType": "page", "pageType": "source", "aliases": [], "maturity": "", "x": 310, "y": 268, "color": "#60a5fa"}, {"id": "wiki/syntheses/delivery-system.md", "label": "Delivery System Synthesis", "type": "synthesis", "summary": "Synthesis page summarizing how source, topic, concept, and decision pages reinforce one another.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/syntheses/delivery-system.md", "sources": ["wiki/sources/platform-spec.md", "wiki/sources/eval-loops.md", "wiki/concepts/ai-native-team.md", "wiki/decisions/execution-policy.md"], "nodeType": "page", "pageType": "synthesis", "aliases": [], "maturity": "", "x": 778, "y": 268, "color": "#22d3ee"}, {"id": "wiki/topics/eval-loops.md", "label": "Eval Loops", "type": "topic", "summary": "Topic page about review lanes, regression checks, and feedback loops for model releases.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/topics/eval-loops.md", "sources": ["wiki/sources/eval-loops.md", "wiki/sources/review-checklist.md"], "nodeType": "page", "pageType": "topic", "aliases": [], "maturity": "", "x": 502, "y": 268, "color": "#34d399"}, {"id": "wiki/topics/model-platform.md", "label": "Model Platform", "type": "topic", "summary": "Topic page for reusable context, evaluation workflows, and internal tooling.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/topics/model-platform.md", "sources": ["wiki/sources/platform-spec.md", "wiki/sources/eval-loops.md"], "nodeType": "page", "pageType": "topic", "aliases": [], "maturity": "", "x": 502, "y": 360, "color": "#34d399"}], "edges": [{"source": "wiki/concepts/ai-native-team.md", "target": "wiki/sources/platform-spec.md", "type": "about", "relation": "about"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/topics/eval-loops.md", "type": "about", "relation": "about"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/topics/model-platform.md", "type": "about", "relation": "about"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/concepts/execution-spec.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/decisions/execution-policy.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/topics/eval-loops.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/topics/model-platform.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/concepts/execution-spec.md", "target": "wiki/sources/platform-spec.md", "type": "about", "relation": "about"}, {"source": "wiki/concepts/execution-spec.md", "target": "wiki/sources/review-checklist.md", "type": "about", "relation": "about"}, {"source": "wiki/concepts/execution-spec.md", "target": "wiki/concepts/ai-native-team.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/concepts/execution-spec.md", "target": "wiki/decisions/context-budget.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/concepts/execution-spec.md", "target": "wiki/decisions/execution-policy.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/decisions/context-budget.md", "target": "wiki/concepts/execution-spec.md", "type": "about", "relation": "about"}, {"source": "wiki/decisions/context-budget.md", "target": "wiki/sources/eval-loops.md", "type": "about", "relation": "about"}, {"source": "wiki/decisions/execution-policy.md", "target": "wiki/concepts/ai-native-team.md", "type": "about", "relation": "about"}, {"source": "wiki/decisions/execution-policy.md", "target": "wiki/concepts/execution-spec.md", "type": "about", "relation": "about"}, {"source": "wiki/queries/what-makes-ai-native-team.md", "target": "wiki/concepts/ai-native-team.md", "type": "about", "relation": "about"}, {"source": "wiki/queries/what-makes-ai-native-team.md", "target": "wiki/decisions/execution-policy.md", "type": "about", "relation": "about"}, {"source": "wiki/queries/what-makes-ai-native-team.md", "target": "wiki/concepts/ai-native-team.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/queries/what-makes-ai-native-team.md", "target": "wiki/decisions/execution-policy.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/sources/eval-loops.md", "target": "wiki/decisions/context-budget.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/sources/eval-loops.md", "target": "wiki/topics/eval-loops.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/sources/platform-spec.md", "target": "wiki/concepts/ai-native-team.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/sources/platform-spec.md", "target": "wiki/concepts/execution-spec.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/sources/platform-spec.md", "target": "wiki/topics/model-platform.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/sources/review-checklist.md", "target": "wiki/concepts/ai-native-team.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/sources/review-checklist.md", "target": "wiki/decisions/execution-policy.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/syntheses/delivery-system.md", "target": "wiki/concepts/ai-native-team.md", "type": "about", "relation": "about"}, {"source": "wiki/syntheses/delivery-system.md", "target": "wiki/decisions/execution-policy.md", "type": "about", "relation": "about"}, {"source": "wiki/syntheses/delivery-system.md", "target": "wiki/sources/eval-loops.md", "type": "about", "relation": "about"}, {"source": "wiki/syntheses/delivery-system.md", "target": "wiki/sources/platform-spec.md", "type": "about", "relation": "about"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/sources/eval-loops.md", "type": "about", "relation": "about"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/sources/review-checklist.md", "type": "about", "relation": "about"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/decisions/context-budget.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/sources/eval-loops.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/sources/review-checklist.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/topics/model-platform.md", "target": "wiki/sources/eval-loops.md", "type": "about", "relation": "about"}, {"source": "wiki/topics/model-platform.md", "target": "wiki/sources/platform-spec.md", "type": "about", "relation": "about"}, {"source": "wiki/topics/model-platform.md", "target": "wiki/concepts/execution-spec.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/topics/model-platform.md", "target": "wiki/sources/eval-loops.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/topics/model-platform.md", "target": "wiki/sources/platform-spec.md", "type": "related_to", "relation": "related_to"}], "insights": {"stats": {"nodeCount": 11, "edgeCount": 41, "isolatedCount": 0, "weakCount": 0, "averageDegree": 7.45}, "topNodes": [{"id": "wiki/concepts/ai-native-team.md", "title": "AI Native Team", "type": "concept", "score": 70, "reason": "Degree 14, inbound 7, spanning 6 neighbor types."}, {"id": "wiki/concepts/execution-spec.md", "title": "Execution Spec", "type": "concept", "score": 50, "reason": "Degree 10, inbound 5, spanning 4 neighbor types."}, {"id": "wiki/decisions/execution-policy.md", "title": "Execution Policy", "type": "decision", "score": 46, "reason": "Degree 8, inbound 6, spanning 4 neighbor types."}, {"id": "wiki/sources/eval-loops.md", "title": "Eval Loop Notes", "type": "source", "score": 44, "reason": "Degree 8, inbound 6, spanning 3 neighbor types."}, {"id": "wiki/sources/platform-spec.md", "title": "Platform Spec", "type": "source", "score": 42, "reason": "Degree 8, inbound 5, spanning 3 neighbor types."}, {"id": "wiki/topics/eval-loops.md", "title": "Eval Loops", "type": "topic", "score": 38, "reason": "Degree 8, inbound 3, spanning 3 neighbor types."}], "bridgeNodes": [{"id": "wiki/concepts/ai-native-team.md", "title": "AI Native Team", "type": "concept", "score": 35, "reason": "Connects 6 page types and works well as a bridge."}, {"id": "wiki/concepts/execution-spec.md", "title": "Execution Spec", "type": "concept", "score": 25, "reason": "Connects 4 page types and works well as a bridge."}, {"id": "wiki/decisions/execution-policy.md", "title": "Execution Policy", "type": "decision", "score": 23, "reason": "Connects 4 page types and works well as a bridge."}, {"id": "wiki/sources/eval-loops.md", "title": "Eval Loop Notes", "type": "source", "score": 20, "reason": "Connects 3 page types and works well as a bridge."}, {"id": "wiki/topics/eval-loops.md", "title": "Eval Loops", "type": "topic", "score": 20, "reason": "Connects 3 page types and works well as a bridge."}], "isolatedNodes": [], "suggestedLinks": [{"source": "wiki/decisions/context-budget.md", "sourceLabel": "Context Budget", "target": "wiki/decisions/execution-policy.md", "targetLabel": "Execution Policy", "score": 17, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["context", "decision", "decisions", "page"], "sharedSources": ["wiki/concepts/execution-spec.md"]}, {"source": "wiki/topics/eval-loops.md", "sourceLabel": "Eval Loops", "target": "wiki/topics/model-platform.md", "targetLabel": "Model Platform", "score": 17, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["for", "model", "page", "topic"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/syntheses/delivery-system.md", "sourceLabel": "Delivery System Synthesis", "target": "wiki/topics/model-platform.md", "targetLabel": "Model Platform", "score": 13, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["page", "topic"], "sharedSources": ["wiki/sources/eval-loops.md", "wiki/sources/platform-spec.md"]}, {"source": "wiki/queries/what-makes-ai-native-team.md", "sourceLabel": "What Makes an AI Native Team", "target": "wiki/syntheses/delivery-system.md", "targetLabel": "Delivery System Synthesis", "score": 13, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["delivery", "summarizing"], "sharedSources": ["wiki/concepts/ai-native-team.md", "wiki/decisions/execution-policy.md"]}, {"source": "wiki/decisions/context-budget.md", "sourceLabel": "Context Budget", "target": "wiki/syntheses/delivery-system.md", "targetLabel": "Delivery System Synthesis", "score": 12, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["decision", "page"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/decisions/context-budget.md", "sourceLabel": "Context Budget", "target": "wiki/topics/model-platform.md", "targetLabel": "Model Platform", "score": 12, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["context", "page"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/syntheses/delivery-system.md", "sourceLabel": "Delivery System Synthesis", "target": "wiki/topics/eval-loops.md", "targetLabel": "Eval Loops", "score": 12, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["page", "topic"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/decisions/execution-policy.md", "sourceLabel": "Execution Policy", "target": "wiki/sources/platform-spec.md", "targetLabel": "Platform Spec", "score": 10, "reasons": ["shared keywords", "shared graph neighbors"], "sharedTokens": ["context", "execution", "page", "platform"], "sharedSources": []}], "summary": "The current key page is AI Native Team. The main pages already have a basic connection structure. You can review 8 suggested links next."}}, "suggested": {"nodeCount": 11, "edgeCount": 8, "canvasWidth": 1100, "canvasHeight": 760, "nodes": [{"id": "wiki/concepts/ai-native-team.md", "label": "AI Native Team", "type": "concept", "summary": "A team model that treats models, context, and workflow as one operating system for delivery.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/concepts/ai-native-team.md", "sources": ["wiki/sources/platform-spec.md", "wiki/topics/model-platform.md", "wiki/topics/eval-loops.md"], "nodeType": "page", "pageType": "concept", "aliases": [], "maturity": "", "x": 558, "y": 268, "color": "#a78bfa"}, {"id": "wiki/concepts/execution-spec.md", "label": "Execution Spec", "type": "concept", "summary": "A reusable specification that binds task framing, context, policy, and review expectations together.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/concepts/execution-spec.md", "sources": ["wiki/sources/platform-spec.md", "wiki/sources/review-checklist.md"], "nodeType": "page", "pageType": "concept", "aliases": [], "maturity": "", "x": 558, "y": 360, "color": "#a78bfa"}, {"id": "wiki/decisions/context-budget.md", "label": "Context Budget", "type": "decision", "summary": "Decision page that limits context sprawl and requires explicit budget ownership in prompts and tools.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/decisions/context-budget.md", "sources": ["wiki/sources/eval-loops.md", "wiki/concepts/execution-spec.md"], "nodeType": "page", "pageType": "decision", "aliases": [], "maturity": "", "x": 722, "y": 176, "color": "#fb923c"}, {"id": "wiki/decisions/execution-policy.md", "label": "Execution Policy", "type": "decision", "summary": "Decision page that recommends treating context and execution as first-class platform capabilities.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/decisions/execution-policy.md", "sources": ["wiki/concepts/ai-native-team.md", "wiki/concepts/execution-spec.md"], "nodeType": "page", "pageType": "decision", "aliases": [], "maturity": "", "x": 722, "y": 268, "color": "#fb923c"}, {"id": "wiki/queries/what-makes-ai-native-team.md", "label": "What Makes an AI Native Team", "type": "query", "summary": "Saved query summarizing the defining traits of an AI native delivery team.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/queries/what-makes-ai-native-team.md", "sources": ["wiki/concepts/ai-native-team.md", "wiki/decisions/execution-policy.md"], "nodeType": "page", "pageType": "query", "aliases": [], "maturity": "", "x": 778, "y": 360, "color": "#cbd5e1"}, {"id": "wiki/sources/eval-loops.md", "label": "Eval Loop Notes", "type": "source", "summary": "Notes from an internal workshop on evaluation loops, review lanes, and release confidence.", "confidence": "extracted", "status": "active", "updated": "2026-06-19", "path": "wiki/sources/eval-loops.md", "sources": ["raw/articles/eval-loops.md"], "nodeType": "page", "pageType": "source", "aliases": [], "maturity": "", "x": 310, "y": 176, "color": "#60a5fa"}, {"id": "wiki/sources/platform-spec.md", "label": "Platform Spec", "type": "source", "summary": "A source page describing why execution specs and context must be treated as one delivery system.", "confidence": "extracted", "status": "active", "updated": "2026-06-19", "path": "wiki/sources/platform-spec.md", "sources": ["raw/articles/platform-spec.md"], "nodeType": "page", "pageType": "source", "aliases": [], "maturity": "", "x": 310, "y": 84, "color": "#60a5fa"}, {"id": "wiki/sources/review-checklist.md", "label": "Review Checklist", "type": "source", "summary": "A source page explaining how human review, acceptance criteria, and escalation paths fit together.", "confidence": "extracted", "status": "active", "updated": "2026-06-19", "path": "wiki/sources/review-checklist.md", "sources": ["raw/articles/review-checklist.md"], "nodeType": "page", "pageType": "source", "aliases": [], "maturity": "", "x": 310, "y": 268, "color": "#60a5fa"}, {"id": "wiki/syntheses/delivery-system.md", "label": "Delivery System Synthesis", "type": "synthesis", "summary": "Synthesis page summarizing how source, topic, concept, and decision pages reinforce one another.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/syntheses/delivery-system.md", "sources": ["wiki/sources/platform-spec.md", "wiki/sources/eval-loops.md", "wiki/concepts/ai-native-team.md", "wiki/decisions/execution-policy.md"], "nodeType": "page", "pageType": "synthesis", "aliases": [], "maturity": "", "x": 778, "y": 84, "color": "#22d3ee"}, {"id": "wiki/topics/eval-loops.md", "label": "Eval Loops", "type": "topic", "summary": "Topic page about review lanes, regression checks, and feedback loops for model releases.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/topics/eval-loops.md", "sources": ["wiki/sources/eval-loops.md", "wiki/sources/review-checklist.md"], "nodeType": "page", "pageType": "topic", "aliases": [], "maturity": "", "x": 502, "y": 176, "color": "#34d399"}, {"id": "wiki/topics/model-platform.md", "label": "Model Platform", "type": "topic", "summary": "Topic page for reusable context, evaluation workflows, and internal tooling.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/topics/model-platform.md", "sources": ["wiki/sources/platform-spec.md", "wiki/sources/eval-loops.md"], "nodeType": "page", "pageType": "topic", "aliases": [], "maturity": "", "x": 502, "y": 84, "color": "#34d399"}], "edges": [{"source": "wiki/decisions/context-budget.md", "target": "wiki/decisions/execution-policy.md", "type": "suggests_related_to", "relation": "suggests_related_to", "score": "17"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/topics/model-platform.md", "type": "suggests_related_to", "relation": "suggests_related_to", "score": "17"}, {"source": "wiki/syntheses/delivery-system.md", "target": "wiki/topics/model-platform.md", "type": "suggests_related_to", "relation": "suggests_related_to", "score": "13"}, {"source": "wiki/queries/what-makes-ai-native-team.md", "target": "wiki/syntheses/delivery-system.md", "type": "suggests_related_to", "relation": "suggests_related_to", "score": "13"}, {"source": "wiki/decisions/context-budget.md", "target": "wiki/syntheses/delivery-system.md", "type": "suggests_related_to", "relation": "suggests_related_to", "score": "12"}, {"source": "wiki/decisions/context-budget.md", "target": "wiki/topics/model-platform.md", "type": "suggests_related_to", "relation": "suggests_related_to", "score": "12"}, {"source": "wiki/syntheses/delivery-system.md", "target": "wiki/topics/eval-loops.md", "type": "suggests_related_to", "relation": "suggests_related_to", "score": "12"}, {"source": "wiki/decisions/execution-policy.md", "target": "wiki/sources/platform-spec.md", "type": "suggests_related_to", "relation": "suggests_related_to", "score": "10"}], "insights": {"stats": {"nodeCount": 11, "edgeCount": 41, "isolatedCount": 0, "weakCount": 0, "averageDegree": 7.45}, "topNodes": [{"id": "wiki/concepts/ai-native-team.md", "title": "AI Native Team", "type": "concept", "score": 70, "reason": "Degree 14, inbound 7, spanning 6 neighbor types."}, {"id": "wiki/concepts/execution-spec.md", "title": "Execution Spec", "type": "concept", "score": 50, "reason": "Degree 10, inbound 5, spanning 4 neighbor types."}, {"id": "wiki/decisions/execution-policy.md", "title": "Execution Policy", "type": "decision", "score": 46, "reason": "Degree 8, inbound 6, spanning 4 neighbor types."}, {"id": "wiki/sources/eval-loops.md", "title": "Eval Loop Notes", "type": "source", "score": 44, "reason": "Degree 8, inbound 6, spanning 3 neighbor types."}, {"id": "wiki/sources/platform-spec.md", "title": "Platform Spec", "type": "source", "score": 42, "reason": "Degree 8, inbound 5, spanning 3 neighbor types."}, {"id": "wiki/topics/eval-loops.md", "title": "Eval Loops", "type": "topic", "score": 38, "reason": "Degree 8, inbound 3, spanning 3 neighbor types."}], "bridgeNodes": [{"id": "wiki/concepts/ai-native-team.md", "title": "AI Native Team", "type": "concept", "score": 35, "reason": "Connects 6 page types and works well as a bridge."}, {"id": "wiki/concepts/execution-spec.md", "title": "Execution Spec", "type": "concept", "score": 25, "reason": "Connects 4 page types and works well as a bridge."}, {"id": "wiki/decisions/execution-policy.md", "title": "Execution Policy", "type": "decision", "score": 23, "reason": "Connects 4 page types and works well as a bridge."}, {"id": "wiki/sources/eval-loops.md", "title": "Eval Loop Notes", "type": "source", "score": 20, "reason": "Connects 3 page types and works well as a bridge."}, {"id": "wiki/topics/eval-loops.md", "title": "Eval Loops", "type": "topic", "score": 20, "reason": "Connects 3 page types and works well as a bridge."}], "isolatedNodes": [], "suggestedLinks": [{"source": "wiki/decisions/context-budget.md", "sourceLabel": "Context Budget", "target": "wiki/decisions/execution-policy.md", "targetLabel": "Execution Policy", "score": 17, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["context", "decision", "decisions", "page"], "sharedSources": ["wiki/concepts/execution-spec.md"]}, {"source": "wiki/topics/eval-loops.md", "sourceLabel": "Eval Loops", "target": "wiki/topics/model-platform.md", "targetLabel": "Model Platform", "score": 17, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["for", "model", "page", "topic"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/syntheses/delivery-system.md", "sourceLabel": "Delivery System Synthesis", "target": "wiki/topics/model-platform.md", "targetLabel": "Model Platform", "score": 13, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["page", "topic"], "sharedSources": ["wiki/sources/eval-loops.md", "wiki/sources/platform-spec.md"]}, {"source": "wiki/queries/what-makes-ai-native-team.md", "sourceLabel": "What Makes an AI Native Team", "target": "wiki/syntheses/delivery-system.md", "targetLabel": "Delivery System Synthesis", "score": 13, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["delivery", "summarizing"], "sharedSources": ["wiki/concepts/ai-native-team.md", "wiki/decisions/execution-policy.md"]}, {"source": "wiki/decisions/context-budget.md", "sourceLabel": "Context Budget", "target": "wiki/syntheses/delivery-system.md", "targetLabel": "Delivery System Synthesis", "score": 12, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["decision", "page"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/decisions/context-budget.md", "sourceLabel": "Context Budget", "target": "wiki/topics/model-platform.md", "targetLabel": "Model Platform", "score": 12, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["context", "page"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/syntheses/delivery-system.md", "sourceLabel": "Delivery System Synthesis", "target": "wiki/topics/eval-loops.md", "targetLabel": "Eval Loops", "score": 12, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["page", "topic"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/decisions/execution-policy.md", "sourceLabel": "Execution Policy", "target": "wiki/sources/platform-spec.md", "targetLabel": "Platform Spec", "score": 10, "reasons": ["shared keywords", "shared graph neighbors"], "sharedTokens": ["context", "execution", "page", "platform"], "sharedSources": []}], "summary": "There are 8 high-confidence candidate content relations that could become explicit graph links."}}}, "nodeCount": 11, "edgeCount": 41, "canvasWidth": 1100, "canvasHeight": 760, "nodes": [{"id": "wiki/concepts/ai-native-team.md", "label": "AI Native Team", "type": "concept", "summary": "A team model that treats models, context, and workflow as one operating system for delivery.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/concepts/ai-native-team.md", "sources": ["wiki/sources/platform-spec.md", "wiki/topics/model-platform.md", "wiki/topics/eval-loops.md"], "nodeType": "page", "pageType": "concept", "aliases": [], "maturity": "", "x": 558, "y": 84, "color": "#a78bfa"}, {"id": "wiki/concepts/execution-spec.md", "label": "Execution Spec", "type": "concept", "summary": "A reusable specification that binds task framing, context, policy, and review expectations together.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/concepts/execution-spec.md", "sources": ["wiki/sources/platform-spec.md", "wiki/sources/review-checklist.md"], "nodeType": "page", "pageType": "concept", "aliases": [], "maturity": "", "x": 558, "y": 176, "color": "#a78bfa"}, {"id": "wiki/decisions/context-budget.md", "label": "Context Budget", "type": "decision", "summary": "Decision page that limits context sprawl and requires explicit budget ownership in prompts and tools.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/decisions/context-budget.md", "sources": ["wiki/sources/eval-loops.md", "wiki/concepts/execution-spec.md"], "nodeType": "page", "pageType": "decision", "aliases": [], "maturity": "", "x": 722, "y": 176, "color": "#fb923c"}, {"id": "wiki/decisions/execution-policy.md", "label": "Execution Policy", "type": "decision", "summary": "Decision page that recommends treating context and execution as first-class platform capabilities.", "confidence": "verified", "status": "active", "updated": "2026-06-19", "path": "wiki/decisions/execution-policy.md", "sources": ["wiki/concepts/ai-native-team.md", "wiki/concepts/execution-spec.md"], "nodeType": "page", "pageType": "decision", "aliases": [], "maturity": "", "x": 722, "y": 84, "color": "#fb923c"}, {"id": "wiki/queries/what-makes-ai-native-team.md", "label": "What Makes an AI Native Team", "type": "query", "summary": "Saved query summarizing the defining traits of an AI native delivery team.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/queries/what-makes-ai-native-team.md", "sources": ["wiki/concepts/ai-native-team.md", "wiki/decisions/execution-policy.md"], "nodeType": "page", "pageType": "query", "aliases": [], "maturity": "", "x": 778, "y": 360, "color": "#cbd5e1"}, {"id": "wiki/sources/eval-loops.md", "label": "Eval Loop Notes", "type": "source", "summary": "Notes from an internal workshop on evaluation loops, review lanes, and release confidence.", "confidence": "extracted", "status": "active", "updated": "2026-06-19", "path": "wiki/sources/eval-loops.md", "sources": ["raw/articles/eval-loops.md"], "nodeType": "page", "pageType": "source", "aliases": [], "maturity": "", "x": 310, "y": 84, "color": "#60a5fa"}, {"id": "wiki/sources/platform-spec.md", "label": "Platform Spec", "type": "source", "summary": "A source page describing why execution specs and context must be treated as one delivery system.", "confidence": "extracted", "status": "active", "updated": "2026-06-19", "path": "wiki/sources/platform-spec.md", "sources": ["raw/articles/platform-spec.md"], "nodeType": "page", "pageType": "source", "aliases": [], "maturity": "", "x": 310, "y": 176, "color": "#60a5fa"}, {"id": "wiki/sources/review-checklist.md", "label": "Review Checklist", "type": "source", "summary": "A source page explaining how human review, acceptance criteria, and escalation paths fit together.", "confidence": "extracted", "status": "active", "updated": "2026-06-19", "path": "wiki/sources/review-checklist.md", "sources": ["raw/articles/review-checklist.md"], "nodeType": "page", "pageType": "source", "aliases": [], "maturity": "", "x": 310, "y": 268, "color": "#60a5fa"}, {"id": "wiki/syntheses/delivery-system.md", "label": "Delivery System Synthesis", "type": "synthesis", "summary": "Synthesis page summarizing how source, topic, concept, and decision pages reinforce one another.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/syntheses/delivery-system.md", "sources": ["wiki/sources/platform-spec.md", "wiki/sources/eval-loops.md", "wiki/concepts/ai-native-team.md", "wiki/decisions/execution-policy.md"], "nodeType": "page", "pageType": "synthesis", "aliases": [], "maturity": "", "x": 778, "y": 268, "color": "#22d3ee"}, {"id": "wiki/topics/eval-loops.md", "label": "Eval Loops", "type": "topic", "summary": "Topic page about review lanes, regression checks, and feedback loops for model releases.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/topics/eval-loops.md", "sources": ["wiki/sources/eval-loops.md", "wiki/sources/review-checklist.md"], "nodeType": "page", "pageType": "topic", "aliases": [], "maturity": "", "x": 502, "y": 268, "color": "#34d399"}, {"id": "wiki/topics/model-platform.md", "label": "Model Platform", "type": "topic", "summary": "Topic page for reusable context, evaluation workflows, and internal tooling.", "confidence": "mixed", "status": "active", "updated": "2026-06-19", "path": "wiki/topics/model-platform.md", "sources": ["wiki/sources/platform-spec.md", "wiki/sources/eval-loops.md"], "nodeType": "page", "pageType": "topic", "aliases": [], "maturity": "", "x": 502, "y": 360, "color": "#34d399"}], "edges": [{"source": "wiki/concepts/ai-native-team.md", "target": "wiki/sources/platform-spec.md", "type": "about", "relation": "about"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/topics/eval-loops.md", "type": "about", "relation": "about"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/topics/model-platform.md", "type": "about", "relation": "about"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/concepts/execution-spec.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/decisions/execution-policy.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/topics/eval-loops.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/concepts/ai-native-team.md", "target": "wiki/topics/model-platform.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/concepts/execution-spec.md", "target": "wiki/sources/platform-spec.md", "type": "about", "relation": "about"}, {"source": "wiki/concepts/execution-spec.md", "target": "wiki/sources/review-checklist.md", "type": "about", "relation": "about"}, {"source": "wiki/concepts/execution-spec.md", "target": "wiki/concepts/ai-native-team.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/concepts/execution-spec.md", "target": "wiki/decisions/context-budget.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/concepts/execution-spec.md", "target": "wiki/decisions/execution-policy.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/decisions/context-budget.md", "target": "wiki/concepts/execution-spec.md", "type": "about", "relation": "about"}, {"source": "wiki/decisions/context-budget.md", "target": "wiki/sources/eval-loops.md", "type": "about", "relation": "about"}, {"source": "wiki/decisions/execution-policy.md", "target": "wiki/concepts/ai-native-team.md", "type": "about", "relation": "about"}, {"source": "wiki/decisions/execution-policy.md", "target": "wiki/concepts/execution-spec.md", "type": "about", "relation": "about"}, {"source": "wiki/queries/what-makes-ai-native-team.md", "target": "wiki/concepts/ai-native-team.md", "type": "about", "relation": "about"}, {"source": "wiki/queries/what-makes-ai-native-team.md", "target": "wiki/decisions/execution-policy.md", "type": "about", "relation": "about"}, {"source": "wiki/queries/what-makes-ai-native-team.md", "target": "wiki/concepts/ai-native-team.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/queries/what-makes-ai-native-team.md", "target": "wiki/decisions/execution-policy.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/sources/eval-loops.md", "target": "wiki/decisions/context-budget.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/sources/eval-loops.md", "target": "wiki/topics/eval-loops.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/sources/platform-spec.md", "target": "wiki/concepts/ai-native-team.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/sources/platform-spec.md", "target": "wiki/concepts/execution-spec.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/sources/platform-spec.md", "target": "wiki/topics/model-platform.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/sources/review-checklist.md", "target": "wiki/concepts/ai-native-team.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/sources/review-checklist.md", "target": "wiki/decisions/execution-policy.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/syntheses/delivery-system.md", "target": "wiki/concepts/ai-native-team.md", "type": "about", "relation": "about"}, {"source": "wiki/syntheses/delivery-system.md", "target": "wiki/decisions/execution-policy.md", "type": "about", "relation": "about"}, {"source": "wiki/syntheses/delivery-system.md", "target": "wiki/sources/eval-loops.md", "type": "about", "relation": "about"}, {"source": "wiki/syntheses/delivery-system.md", "target": "wiki/sources/platform-spec.md", "type": "about", "relation": "about"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/sources/eval-loops.md", "type": "about", "relation": "about"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/sources/review-checklist.md", "type": "about", "relation": "about"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/decisions/context-budget.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/sources/eval-loops.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/topics/eval-loops.md", "target": "wiki/sources/review-checklist.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/topics/model-platform.md", "target": "wiki/sources/eval-loops.md", "type": "about", "relation": "about"}, {"source": "wiki/topics/model-platform.md", "target": "wiki/sources/platform-spec.md", "type": "about", "relation": "about"}, {"source": "wiki/topics/model-platform.md", "target": "wiki/concepts/execution-spec.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/topics/model-platform.md", "target": "wiki/sources/eval-loops.md", "type": "related_to", "relation": "related_to"}, {"source": "wiki/topics/model-platform.md", "target": "wiki/sources/platform-spec.md", "type": "related_to", "relation": "related_to"}], "insights": {"stats": {"nodeCount": 11, "edgeCount": 41, "isolatedCount": 0, "weakCount": 0, "averageDegree": 7.45}, "topNodes": [{"id": "wiki/concepts/ai-native-team.md", "title": "AI Native Team", "type": "concept", "score": 70, "reason": "Degree 14, inbound 7, spanning 6 neighbor types."}, {"id": "wiki/concepts/execution-spec.md", "title": "Execution Spec", "type": "concept", "score": 50, "reason": "Degree 10, inbound 5, spanning 4 neighbor types."}, {"id": "wiki/decisions/execution-policy.md", "title": "Execution Policy", "type": "decision", "score": 46, "reason": "Degree 8, inbound 6, spanning 4 neighbor types."}, {"id": "wiki/sources/eval-loops.md", "title": "Eval Loop Notes", "type": "source", "score": 44, "reason": "Degree 8, inbound 6, spanning 3 neighbor types."}, {"id": "wiki/sources/platform-spec.md", "title": "Platform Spec", "type": "source", "score": 42, "reason": "Degree 8, inbound 5, spanning 3 neighbor types."}, {"id": "wiki/topics/eval-loops.md", "title": "Eval Loops", "type": "topic", "score": 38, "reason": "Degree 8, inbound 3, spanning 3 neighbor types."}], "bridgeNodes": [{"id": "wiki/concepts/ai-native-team.md", "title": "AI Native Team", "type": "concept", "score": 35, "reason": "Connects 6 page types and works well as a bridge."}, {"id": "wiki/concepts/execution-spec.md", "title": "Execution Spec", "type": "concept", "score": 25, "reason": "Connects 4 page types and works well as a bridge."}, {"id": "wiki/decisions/execution-policy.md", "title": "Execution Policy", "type": "decision", "score": 23, "reason": "Connects 4 page types and works well as a bridge."}, {"id": "wiki/sources/eval-loops.md", "title": "Eval Loop Notes", "type": "source", "score": 20, "reason": "Connects 3 page types and works well as a bridge."}, {"id": "wiki/topics/eval-loops.md", "title": "Eval Loops", "type": "topic", "score": 20, "reason": "Connects 3 page types and works well as a bridge."}], "isolatedNodes": [], "suggestedLinks": [{"source": "wiki/decisions/context-budget.md", "sourceLabel": "Context Budget", "target": "wiki/decisions/execution-policy.md", "targetLabel": "Execution Policy", "score": 17, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["context", "decision", "decisions", "page"], "sharedSources": ["wiki/concepts/execution-spec.md"]}, {"source": "wiki/topics/eval-loops.md", "sourceLabel": "Eval Loops", "target": "wiki/topics/model-platform.md", "targetLabel": "Model Platform", "score": 17, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["for", "model", "page", "topic"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/syntheses/delivery-system.md", "sourceLabel": "Delivery System Synthesis", "target": "wiki/topics/model-platform.md", "targetLabel": "Model Platform", "score": 13, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["page", "topic"], "sharedSources": ["wiki/sources/eval-loops.md", "wiki/sources/platform-spec.md"]}, {"source": "wiki/queries/what-makes-ai-native-team.md", "sourceLabel": "What Makes an AI Native Team", "target": "wiki/syntheses/delivery-system.md", "targetLabel": "Delivery System Synthesis", "score": 13, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["delivery", "summarizing"], "sharedSources": ["wiki/concepts/ai-native-team.md", "wiki/decisions/execution-policy.md"]}, {"source": "wiki/decisions/context-budget.md", "sourceLabel": "Context Budget", "target": "wiki/syntheses/delivery-system.md", "targetLabel": "Delivery System Synthesis", "score": 12, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["decision", "page"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/decisions/context-budget.md", "sourceLabel": "Context Budget", "target": "wiki/topics/model-platform.md", "targetLabel": "Model Platform", "score": 12, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["context", "page"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/syntheses/delivery-system.md", "sourceLabel": "Delivery System Synthesis", "target": "wiki/topics/eval-loops.md", "targetLabel": "Eval Loops", "score": 12, "reasons": ["shared sources", "shared keywords", "shared graph neighbors"], "sharedTokens": ["page", "topic"], "sharedSources": ["wiki/sources/eval-loops.md"]}, {"source": "wiki/decisions/execution-policy.md", "sourceLabel": "Execution Policy", "target": "wiki/sources/platform-spec.md", "targetLabel": "Platform Spec", "score": 10, "reasons": ["shared keywords", "shared graph neighbors"], "sharedTokens": ["context", "execution", "page", "platform"], "sharedSources": []}], "summary": "The current key page is AI Native Team. The main pages already have a basic connection structure. You can review 8 suggested links next."}, "edgeStyles": {"references": {"stroke": "rgba(138,180,255,0.38)", "highlight": "rgba(138,180,255,0.98)", "dash": ""}, "links_to": {"stroke": "rgba(255,255,255,0.28)", "highlight": "rgba(255,255,255,0.82)", "dash": ""}, "includes": {"stroke": "rgba(52,211,153,0.42)", "highlight": "rgba(52,211,153,0.96)", "dash": "6 4"}, "cites": {"stroke": "rgba(251,146,60,0.4)", "highlight": "rgba(251,146,60,0.96)", "dash": "2 6"}, "about": {"stroke": "rgba(96,165,250,0.42)", "highlight": "rgba(96,165,250,0.96)", "dash": "8 6"}, "belongs_to": {"stroke": "rgba(52,211,153,0.42)", "highlight": "rgba(52,211,153,0.96)", "dash": ""}, "related_to": {"stroke": "rgba(255,255,255,0.28)", "highlight": "rgba(255,255,255,0.9)", "dash": ""}, "depends_on": {"stroke": "rgba(167,139,250,0.42)", "highlight": "rgba(167,139,250,0.96)", "dash": "4 4"}, "asserts": {"stroke": "rgba(250,204,21,0.42)", "highlight": "rgba(250,204,21,0.98)", "dash": ""}, "supports": {"stroke": "rgba(34,211,238,0.42)", "highlight": "rgba(34,211,238,0.96)", "dash": ""}, "contradicts": {"stroke": "rgba(244,114,182,0.42)", "highlight": "rgba(244,114,182,0.96)", "dash": "10 5"}, "suggests_related_to": {"stroke": "rgba(138,180,255,0.38)", "highlight": "rgba(138,180,255,0.96)", "dash": "10 6"}}};
+    const searchEl = document.getElementById("search");
+    const typeFilterEl = document.getElementById("typeFilter");
+    const statusFilterEl = document.getElementById("statusFilter");
+    const confidenceFilterEl = document.getElementById("confidenceFilter");
+    const scopeFilterEl = document.getElementById("scopeFilter");
+    const resetBtn = document.getElementById("resetBtn");
+    const modeButtons = Array.from(document.querySelectorAll("[data-view-mode]"));
+    const nodeCountValueEl = document.getElementById("nodeCountValue");
+    const edgeCountValueEl = document.getElementById("edgeCountValue");
+    const viewNameValueEl = document.getElementById("viewNameValue");
+    const insightsPanel = document.getElementById("insightsPanel");
+    const detailPanel = document.getElementById("detailPanel");
+    const svg = document.getElementById("graph");
+    const graphStage = document.getElementById("graphStage");
+    const allViews = payload.views || {};
+    const edgeStyles = payload.edgeStyles || {};
+    const edgeTypeInputs = Array.from(document.querySelectorAll('input[id^="edgeType-"]'));
+    const focusButtons = Array.from(document.querySelectorAll("[data-focus-type]"));
+
+    let activeNodeId = "";
+    let activeSuggestionKey = "";
+    let activeViewName = payload.defaultView || payload.viewName || "knowledge";
+    let view = payload;
+    let insights = payload.insights || {};
+    let nodeMap = new Map();
+    let neighbors = new Map();
+
+    function fallbackInsights() {
+      return {
+        stats: {},
+        topNodes: [],
+        bridgeNodes: [],
+        isolatedNodes: [],
+        suggestedLinks: [],
+        summary: "",
+      };
+    }
+
+    function refreshViewState() {
+      view = allViews[activeViewName] || payload;
+      insights = view.insights || fallbackInsights();
+      nodeMap = new Map((view.nodes || []).map((node) => [node.id, node]));
+      neighbors = new Map();
+      (view.nodes || []).forEach((node) => neighbors.set(node.id, new Set()));
+      (view.edges || []).forEach((edge) => {
+        if (neighbors.has(edge.source)) neighbors.get(edge.source).add(edge.target);
+        if (neighbors.has(edge.target)) neighbors.get(edge.target).add(edge.source);
+      });
+      svg.setAttribute("viewBox", `0 0 ${view.canvasWidth || payload.canvasWidth} ${view.canvasHeight || payload.canvasHeight}`);
+      svg.setAttribute("width", String(view.canvasWidth || payload.canvasWidth));
+      svg.setAttribute("height", String(view.canvasHeight || payload.canvasHeight));
+      if (nodeCountValueEl) nodeCountValueEl.textContent = String(view.nodeCount || 0);
+      if (edgeCountValueEl) edgeCountValueEl.textContent = String(view.edgeCount || 0);
+      if (viewNameValueEl) viewNameValueEl.textContent = String(activeViewName);
+      if (activeNodeId && !nodeMap.has(activeNodeId)) activeNodeId = "";
+      syncModeButtons();
+      syncEdgeTypeInputs();
+    }
+
+    function syncModeButtons() {
+      modeButtons.forEach((button) => {
+        const viewMode = button.getAttribute("data-view-mode") || "";
+        button.classList.toggle("active", viewMode === activeViewName);
+      });
+    }
+
+    function syncEdgeTypeInputs() {
+      const visibleEdgeTypes = new Set((view.edges || []).map((edge) => edge.type || "links_to"));
+      edgeTypeInputs.forEach((input) => {
+        const edgeType = input.id.replace("edgeType-", "");
+        input.disabled = !visibleEdgeTypes.has(edgeType);
+        if (input.disabled) input.checked = false;
+        else if (!input.checked && visibleEdgeTypes.size <= 4) input.checked = true;
+      });
+    }
+
+    function readHashNodeId() {
+      const raw = String(window.location.hash || "").replace(/^#/, "");
+      const params = new URLSearchParams(raw);
+      return params.get("node") || "";
+    }
+
+    function updateHash(nodeId) {
+      const params = new URLSearchParams();
+      if (nodeId) params.set("node", nodeId);
+      const nextHash = params.toString();
+      if ((window.location.hash || "").replace(/^#/, "") !== nextHash) {
+        window.location.hash = nextHash;
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function suggestionKey(sourceId, targetId) {
+      return [String(sourceId || ""), String(targetId || "")].sort().join("::");
+    }
+
+    function activeSuggestionNodeIds() {
+      return new Set(
+        String(activeSuggestionKey || "")
+          .split("::")
+          .filter(Boolean)
+      );
+    }
+
+    function enabledEdgeTypes() {
+      const enabled = new Set(
+        edgeTypeInputs
+          .filter((input) => input.checked)
+          .map((input) => input.id.replace("edgeType-", ""))
+      );
+      return enabled.size ? enabled : new Set(Object.keys(edgeStyles));
+    }
+
+    function syncFocusButtons() {
+      const activeType = typeFilterEl.value || "";
+      focusButtons.forEach((button) => {
+        const buttonType = button.getAttribute("data-focus-type") || "";
+        button.classList.toggle("active", buttonType === activeType);
+      });
+    }
+
+    function visibleNodeIds() {
+      const query = searchEl.value.trim().toLowerCase();
+      const typeNeedle = typeFilterEl.value.trim().toLowerCase();
+      const statusNeedle = statusFilterEl.value.trim().toLowerCase();
+      const confidenceNeedle = confidenceFilterEl.value.trim().toLowerCase();
+      const enabledTypes = enabledEdgeTypes();
+      const filteredIds = new Set();
+
+      (view.nodes || []).forEach((node) => {
+        const haystack = [
+          node.label,
+          node.path,
+          node.summary,
+          node.type,
+          ...(node.sources || []),
+        ].join(" ").toLowerCase();
+
+        if (typeNeedle && String(node.type || "").toLowerCase() !== typeNeedle) return;
+        if (statusNeedle && String(node.status || "").toLowerCase() !== statusNeedle) return;
+        if (confidenceNeedle && String(node.confidence || "").toLowerCase() !== confidenceNeedle) return;
+        if (query && !haystack.includes(query)) return;
+
+        filteredIds.add(node.id);
+      });
+
+      const scope = scopeFilterEl.value || "all";
+      if (!activeNodeId || !filteredIds.has(activeNodeId) || scope === "all") {
+        return filteredIds;
+      }
+
+      const maxDepth = scope === "2" ? 2 : 1;
+      const scopedIds = new Set([activeNodeId]);
+      let frontier = new Set([activeNodeId]);
+
+      for (let depth = 0; depth < maxDepth; depth += 1) {
+        const nextFrontier = new Set();
+        frontier.forEach((nodeId) => {
+          (view.edges || []).forEach((edge) => {
+            if (!enabledTypes.has(edge.type || "")) return;
+            let neighborId = "";
+            if (edge.source === nodeId) neighborId = edge.target;
+            else if (edge.target === nodeId) neighborId = edge.source;
+            else return;
+            if (!filteredIds.has(neighborId) || scopedIds.has(neighborId)) return;
+            scopedIds.add(neighborId);
+            nextFrontier.add(neighborId);
+          });
+        });
+        frontier = nextFrontier;
+        if (!frontier.size) break;
+      }
+
+      return scopedIds;
+    }
+
+    function createSvgEl(name, attrs = {}) {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", name);
+      Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, String(value)));
+      return el;
+    }
+
+    function centerNodeInStage(nodeId) {
+      if (!nodeId || !graphStage || !nodeMap.has(nodeId)) return;
+      const node = nodeMap.get(nodeId);
+      const targetLeft = Math.max(0, node.x - graphStage.clientWidth / 2);
+      const targetTop = Math.max(0, node.y - graphStage.clientHeight / 2);
+      graphStage.scrollTo({ left: targetLeft, top: targetTop, behavior: "smooth" });
+    }
+
+    function edgeStatsForNode(nodeId) {
+      const stats = {};
+      (view.edges || []).forEach((edge) => {
+        if (edge.source !== nodeId && edge.target !== nodeId) return;
+        stats.total = (stats.total || 0) + 1;
+        const edgeType = edge.type || "links_to";
+        stats[edgeType] = (stats[edgeType] || 0) + 1;
+      });
+      return stats;
+    }
+
+    function renderInsightNodeList(title, items, options = {}) {
+      const emptyText = options.emptyText || "Nothing to show right now.";
+      if (!items || !items.length) {
+        return `
+          <h3 class="section-title">${escapeHtml(title)}</h3>
+          <div class="empty">${escapeHtml(emptyText)}</div>
+        `;
+      }
+      const activeSuggestionNodes = activeSuggestionNodeIds();
+      const body = items.map((item) => {
+        const isActive = activeNodeId === item.id || activeSuggestionNodes.has(item.id);
+        const score = item.score ? `<span class="insight-score">score ${escapeHtml(item.score)}</span>` : "";
+        return `
+          <button
+            type="button"
+            class="insight-item${isActive ? " active" : ""}"
+            data-insight-node="${escapeHtml(item.id)}"
+          >
+            <strong>${escapeHtml(item.title)}</strong>
+            <div class="insight-meta">${escapeHtml(item.reason || "")}</div>
+            ${score}
+          </button>
+        `;
+      }).join("");
+      return `<h3 class="section-title">${escapeHtml(title)}</h3><div class="insight-list">${body}</div>`;
+    }
+
+    function renderSuggestionList(items) {
+      if (!items || !items.length) {
+        return `
+          <h3 class="section-title">Suggested Links</h3>
+          <div class="empty">No high-confidence suggested links right now.</div>
+        `;
+      }
+      const body = items.map((item) => {
+        const itemKey = suggestionKey(item.source, item.target);
+        const isActive = activeSuggestionKey === itemKey;
+        const reasons = (item.reasons || []).map((reason) =>
+          `<span class="insight-reason">${escapeHtml(reason)}</span>`
+        ).join("");
+        return `
+          <button
+            type="button"
+            class="insight-item${isActive ? " active" : ""}"
+            data-suggestion-source="${escapeHtml(item.source)}"
+            data-suggestion-target="${escapeHtml(item.target)}"
+          >
+            <strong>${escapeHtml(item.sourceLabel)} → ${escapeHtml(item.targetLabel)}</strong>
+            <div class="insight-meta">Suggested links that could become explicit context edges.</div>
+            <span class="insight-score">score ${escapeHtml(item.score)}</span>
+            <div class="insight-reasons">${reasons}</div>
+          </button>
+        `;
+      }).join("");
+      return `<h3 class="section-title">Suggested Links</h3><div class="insight-list">${body}</div>`;
+    }
+
+    function renderInsights() {
+      const stats = insights.stats || {};
+      const overviewStats = `
+        <div class="stats">
+          <div class="stat"><strong>${escapeHtml(stats.nodeCount || 0)}</strong><span class="muted">Nodes</span></div>
+          <div class="stat"><strong>${escapeHtml(stats.edgeCount || 0)}</strong><span class="muted">Edges</span></div>
+          <div class="stat"><strong>${escapeHtml(stats.isolatedCount || 0)}</strong><span class="muted">Isolated</span></div>
+          <div class="stat"><strong>${escapeHtml(stats.averageDegree || 0)}</strong><span class="muted">Avg Degree</span></div>
+        </div>
+      `;
+      const selectionNote = activeSuggestionKey
+        ? `<p class="insight-summary">A suggested link is highlighted, and the graph shows the recommended connection as a dashed edge.</p>`
+        : activeNodeId
+          ? `<p class="insight-summary">A node is selected, and the insight lists highlight related pages.</p>`
+          : "";
+
+      insightsPanel.className = "";
+      insightsPanel.innerHTML = `
+        ${overviewStats}
+        <p class="insight-summary">${escapeHtml(insights.summary || "The graph is ready. Start exploring from the key pages.")}</p>
+        ${selectionNote}
+        ${renderInsightNodeList("Key Pages", insights.topNodes || [], { emptyText: "There are not enough nodes yet to identify key pages." })}
+        ${renderInsightNodeList("Bridge Pages", insights.bridgeNodes || [], { emptyText: "No clear bridge pages yet." })}
+        ${renderInsightNodeList("Pages That Need Links", insights.isolatedNodes || [], { emptyText: "There are no isolated or weakly connected pages right now." })}
+        ${renderSuggestionList(insights.suggestedLinks || [])}
+      `;
+    }
+
+    function renderDetail(node) {
+      if (!node) {
+        detailPanel.className = "empty";
+        detailPanel.textContent = "Click a node to inspect its summary, sources, status, and page path.";
+        return;
+      }
+
+      detailPanel.className = "";
+      const viewerHref = "../viewer/index.html#page=" + encodeURIComponent(node.path || node.id);
+      const homeHref = "../index.html";
+      const sources = (node.sources && node.sources.length)
+        ? node.sources.map((item) => escapeHtml(item)).join("<br>")
+        : "n/a";
+      const aliases = (node.aliases && node.aliases.length)
+        ? node.aliases.map((item) => escapeHtml(item)).join(", ")
+        : "n/a";
+      const edgeStats = edgeStatsForNode(node.id);
+      const edgeStatsHtml = `
+        <div class="detail-stats">
+          ${
+            Object.entries(edgeStats)
+              .sort((left, right) => String(left[0]).localeCompare(String(right[0])))
+              .map(([name, count]) => `<div class="detail-stat-row"><span>${escapeHtml(name)}</span><strong>${escapeHtml(count)}</strong></div>`)
+              .join("")
+          }
+        </div>
+      `;
+
+      detailPanel.innerHTML = `
+        <h3 style="margin-top:0;">${escapeHtml(node.label)}</h3>
+        <div>
+          <span class="chip">${escapeHtml(node.type || "page")}</span>
+          <span class="chip">${escapeHtml(node.nodeType || "page")}</span>
+          <span class="chip">${escapeHtml(node.confidence || "n/a")}</span>
+          <span class="chip">${escapeHtml(node.status || "n/a")}</span>
+          <span class="chip">${escapeHtml(node.maturity || "n/a")}</span>
+        </div>
+        <div class="detail-row"><strong>Path</strong>${escapeHtml(node.path || node.id)}</div>
+        <div class="detail-row"><strong>Updated</strong>${escapeHtml(node.updated || "n/a")}</div>
+        <div class="detail-row"><strong>Summary</strong>${escapeHtml(node.summary || "(no summary)")}</div>
+        <div class="detail-row"><strong>Aliases</strong>${aliases}</div>
+        <div class="detail-row"><strong>Relation Stats</strong>${edgeStatsHtml}</div>
+        <div class="detail-row"><strong>Sources</strong><div class="sources">${sources}</div></div>
+        <a class="action" href="${viewerHref}" target="_blank" rel="noopener">Open Local Viewer</a>
+        <a class="action" href="${homeHref}" target="_blank" rel="noopener">Open Workspace Home</a>
+      `;
+    }
+
+    function selectNode(nodeId, options = {}) {
+      activeNodeId = nodeMap.has(nodeId) ? nodeId : "";
+      activeSuggestionKey = options.keepSuggestion ? activeSuggestionKey : "";
+      if (options.updateHash !== false) {
+        updateHash(activeNodeId);
+      }
+      renderInsights();
+      renderDetail(activeNodeId ? nodeMap.get(activeNodeId) : null);
+      renderGraph();
+      centerNodeInStage(activeNodeId);
+    }
+
+    function selectSuggestedLink(sourceId, targetId) {
+      activeSuggestionKey = suggestionKey(sourceId, targetId);
+      activeNodeId = nodeMap.has(sourceId) ? sourceId : "";
+      updateHash(activeNodeId);
+      renderInsights();
+      renderDetail(activeNodeId ? nodeMap.get(activeNodeId) : null);
+      renderGraph();
+      centerNodeInStage(activeNodeId);
+    }
+
+    function renderGraph() {
+      svg.innerHTML = "";
+      const visibleIds = visibleNodeIds();
+      const enabledTypes = enabledEdgeTypes();
+      const suggestedNodes = activeSuggestionNodeIds();
+
+      (view.edges || []).forEach((edge) => {
+        if (!enabledTypes.has(edge.type || "")) return;
+        if (!visibleIds.has(edge.source) || !visibleIds.has(edge.target)) return;
+        const sourceNode = nodeMap.get(edge.source);
+        const targetNode = nodeMap.get(edge.target);
+        if (!sourceNode || !targetNode) return;
+
+        const related = activeNodeId && (edge.source === activeNodeId || edge.target === activeNodeId);
+        const edgeStyle = edgeStyles[edge.type] || edgeStyles.links_to || {
+          stroke: "rgba(255,255,255,0.28)",
+          highlight: "rgba(255,255,255,0.82)",
+          dash: "",
+        };
+        const line = createSvgEl("line", {
+          x1: sourceNode.x,
+          y1: sourceNode.y,
+          x2: targetNode.x,
+          y2: targetNode.y,
+          stroke: related ? edgeStyle.highlight : edgeStyle.stroke,
+          "stroke-width": related ? 2.4 : 1.35,
+          opacity: activeNodeId ? (related ? 1 : 0.42) : 0.92,
+        });
+        if (edgeStyle.dash) {
+          line.setAttribute("stroke-dasharray", edgeStyle.dash);
+        }
+        line.setAttribute("data-edge-type", edge.type || "");
+        svg.appendChild(line);
+      });
+
+      if (suggestedNodes.size === 2) {
+        const [sourceId, targetId] = Array.from(suggestedNodes.values());
+        if (visibleIds.has(sourceId) && visibleIds.has(targetId)) {
+          const sourceNode = nodeMap.get(sourceId);
+          const targetNode = nodeMap.get(targetId);
+          if (sourceNode && targetNode) {
+            const suggestionLine = createSvgEl("line", {
+              x1: sourceNode.x,
+              y1: sourceNode.y,
+              x2: targetNode.x,
+              y2: targetNode.y,
+              stroke: "rgba(138,180,255,0.96)",
+              "stroke-width": 2.6,
+              opacity: 0.96,
+            });
+            suggestionLine.setAttribute("stroke-dasharray", "10 6");
+            suggestionLine.setAttribute("data-suggested-link", activeSuggestionKey);
+            svg.appendChild(suggestionLine);
+          }
+        }
+      }
+
+      (view.nodes || []).forEach((node) => {
+        if (!visibleIds.has(node.id)) return;
+        const isNeighbor = activeNodeId && (neighbors.get(activeNodeId) || new Set()).has(node.id);
+        const isActive = activeNodeId === node.id;
+        const isSuggested = suggestedNodes.has(node.id);
+        const faded = activeNodeId && !isActive && !isNeighbor && !isSuggested;
+
+        const group = createSvgEl("g", {
+          transform: `translate(${node.x}, ${node.y})`,
+          style: "cursor:pointer;",
+        });
+        const circle = createSvgEl("circle", {
+          r: isActive ? 16 : isSuggested ? 14 : 12,
+          fill: node.color || "#60a5fa",
+          stroke: isActive ? "#ffffff" : isSuggested ? "#8ab4ff" : "rgba(255,255,255,0.25)",
+          "stroke-width": isActive ? 2.4 : isSuggested ? 2 : 1.2,
+          opacity: faded ? 0.62 : 1,
+        });
+        const label = createSvgEl("text", {
+          x: 18,
+          y: 5,
+          fill: "#edf2ff",
+          "font-size": 12,
+          opacity: faded ? 0.7 : 0.94,
+        });
+        label.textContent = node.label;
+
+        group.appendChild(circle);
+        group.appendChild(label);
+        group.addEventListener("click", () => {
+          selectNode(node.id);
+        });
+        svg.appendChild(group);
+      });
+    }
+
+    function resetView() {
+      activeNodeId = "";
+      activeSuggestionKey = "";
+      updateHash("");
+      renderInsights();
+      renderDetail(null);
+      renderGraph();
+    }
+
+    insightsPanel.addEventListener("click", (event) => {
+      const target = event.target.closest("button");
+      if (!target) return;
+      const nodeId = target.getAttribute("data-insight-node") || "";
+      if (nodeId) {
+        selectNode(nodeId, { updateHash: true, keepSuggestion: false });
+        return;
+      }
+      const sourceId = target.getAttribute("data-suggestion-source") || "";
+      const targetId = target.getAttribute("data-suggestion-target") || "";
+      if (sourceId && targetId) {
+        selectSuggestedLink(sourceId, targetId);
+      }
+    });
+
+    searchEl.addEventListener("input", () => {
+      renderInsights();
+      renderGraph();
+    });
+    scopeFilterEl.addEventListener("change", () => {
+      renderInsights();
+      renderGraph();
+    });
+    typeFilterEl.addEventListener("change", () => {
+      syncFocusButtons();
+      renderInsights();
+      renderGraph();
+    });
+    statusFilterEl.addEventListener("change", () => {
+      renderInsights();
+      renderGraph();
+    });
+    confidenceFilterEl.addEventListener("change", () => {
+      renderInsights();
+      renderGraph();
+    });
+    edgeTypeInputs.forEach((input) => input.addEventListener("change", () => {
+      renderInsights();
+      renderGraph();
+    }));
+    focusButtons.forEach((button) => button.addEventListener("click", () => {
+      typeFilterEl.value = button.getAttribute("data-focus-type") || "";
+      syncFocusButtons();
+      renderInsights();
+      renderGraph();
+    }));
+    modeButtons.forEach((button) => button.addEventListener("click", () => {
+      const nextView = button.getAttribute("data-view-mode") || "knowledge";
+      if (!allViews[nextView]) return;
+      activeViewName = nextView;
+      activeSuggestionKey = "";
+      refreshViewState();
+      renderInsights();
+      renderDetail(activeNodeId ? nodeMap.get(activeNodeId) : null);
+      renderGraph();
+    }));
+    resetBtn.addEventListener("click", resetView);
+    window.addEventListener("hashchange", () => {
+      const nextNodeId = readHashNodeId();
+      selectNode(nextNodeId, { updateHash: false });
+    });
+
+    const initialNodeId = readHashNodeId();
+    refreshViewState();
+    activeNodeId = nodeMap.has(initialNodeId) ? initialNodeId : "";
+    syncFocusButtons();
+    renderInsights();
+    renderDetail(activeNodeId ? nodeMap.get(activeNodeId) : null);
+    renderGraph();
+    centerNodeInStage(activeNodeId);
+  </script>
+</body>
+</html>

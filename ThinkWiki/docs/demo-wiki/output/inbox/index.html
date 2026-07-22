@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ThinkWiki Inbox Review</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121935;
+      --text: #edf2ff;
+      --muted: #a8b3cf;
+      --border: rgba(255,255,255,0.1);
+      --accent: #8ab4ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #0b1020 0%, #10172f 100%);
+      color: var(--text);
+      padding: 24px;
+    }
+    .shell {
+      width: min(1100px, 100%);
+      margin: 0 auto;
+    }
+    .hero {
+      margin-bottom: 22px;
+      border: 1px solid var(--border);
+      background: rgba(9, 13, 28, 0.86);
+      border-radius: 24px;
+      padding: 28px;
+    }
+    .eyebrow {
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.82rem;
+      margin-bottom: 10px;
+    }
+    h1, h2, p { margin-top: 0; }
+    .lead {
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 18px;
+      max-width: 70ch;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .badges {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 12px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.03);
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .panel {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      border-radius: 18px;
+      padding: 18px;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 18px 0 0;
+    }
+    .summary-stat {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      background: rgba(255,255,255,0.03);
+    }
+    .summary-stat strong {
+      display: block;
+      font-size: 1.4rem;
+      margin-bottom: 6px;
+    }
+    .summary-stat span {
+      color: var(--muted);
+    }
+    .group {
+      margin-top: 18px;
+      border: 1px solid var(--border);
+      background: rgba(9, 13, 28, 0.78);
+      border-radius: 22px;
+      padding: 20px;
+    }
+    .group-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 16px;
+    }
+    .group-head p {
+      color: var(--muted);
+      margin-bottom: 0;
+      max-width: 70ch;
+    }
+    .group-commands {
+      margin-bottom: 16px;
+    }
+    .command-pre {
+      margin-bottom: 10px;
+    }
+    .card {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      border-radius: 18px;
+      padding: 18px;
+    }
+    .card h3 {
+      margin-top: 0;
+    }
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+    }
+    .tag {
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .card p {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .facts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .fact {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.02);
+      font-size: 0.9rem;
+      text-decoration: none;
+    }
+    .fact strong {
+      color: var(--text);
+    }
+    .fact-link {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .path {
+      margin: 14px 0;
+    }
+    .quality-note {
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+    .actions {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .command-label {
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-bottom: 8px;
+    }
+    pre {
+      margin: 0;
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--accent);
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .empty {
+      border: 1px dashed var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.02);
+    }
+    @media (max-width: 900px) {
+      .hero-grid {
+        grid-template-columns: 1fr;
+      }
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 640px) {
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+      .group-head {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="eyebrow">Inbox Review</div>
+      <div class="hero-grid">
+        <div>
+          <h1>ThinkWiki Demo Wiki</h1>
+          <p class="lead">This page gathers everything that has been clipped into the inbox but not formally ingested yet. Items are grouped into `ready / review / weak` so you can process the highest-value captures first and come back to the ones that need manual inspection.</p>
+          <div class="badges">
+            <span class="badge">Items 1</span>
+            <span class="badge"><a href="../index.html" target="_blank" rel="noopener">Open workspace home</a></span>
+          </div>
+          <div class="summary-grid">
+            <div class="summary-stat"><strong>1</strong><span>Total</span></div>
+            <div class="summary-stat"><strong>1</strong><span>Ready</span></div>
+            <div class="summary-stat"><strong>0</strong><span>Review</span></div>
+            <div class="summary-stat"><strong>0</strong><span>Weak</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Priority Queue</h2>
+          <p>This section lists the items that deserve attention first. The usual priority is ready -> review -> weak.</p>
+          <a class='mini-card' href='../normalized/inbox/2026-06-20-team-retrospective.md' target='_blank' rel='noopener'><div class='mini-meta'><span class='mini-type'>wechat</span><span>2026-06-23 11:26</span></div><strong>Team Retrospective</strong><span>Collect this note in inbox first, then decide whether it should become a source page.</span><span>ThinkWiki Channel · ThinkWiki Team</span><span class='quality quality-ready'>quality: ready</span><span class='quality quality-wait_completed'>capture: wait_completed</span><span class='quality quality-media'>media: localized</span><code>normalized/inbox/2026-06-20-team-retrospective.md</code></a>
+          <div class="command-label" style="margin-top: 14px;">Recommended priority commands</div>
+          <pre class='command-pre'>python scripts/thinkwiki ingest --root &lt;wiki-root&gt; --source normalized/inbox/2026-06-20-team-retrospective.md</pre>
+        </div>
+      </div>
+    </section>
+    <section class='group' id='ready'><div class='group-head'><div><h2>Ready To Ingest</h2><p>These captures have strong metadata and article-body quality. They are usually ready for final review before formal ingest.</p></div><span class='badge'>Items 1</span></div><div class='group-commands'><div class='command-label'>Recommended next commands</div><pre class='command-pre'>python scripts/thinkwiki batch-ingest --root &lt;wiki-root&gt; --quality ready --dry-run</pre>
+<pre class='command-pre'>python scripts/thinkwiki batch-ingest --root &lt;wiki-root&gt; --quality ready</pre>
+<pre class='command-pre'>python scripts/thinkwiki ingest --root &lt;wiki-root&gt; --source normalized/inbox/2026-06-20-team-retrospective.md</pre></div><div class='cards'><article class='card'><div class='meta'><span class='tag'>wechat</span><span>2026-06-23 11:26</span></div><h3>Team Retrospective</h3><p>Collect this note in inbox first, then decide whether it should become a source page.</p><div class='facts'><span class='fact'><strong>Adapter: </strong>wechat</span><span class='fact'><strong>Mode: </strong>wait</span><span class='fact'><strong>State: </strong>wait_completed</span><span class='fact'><strong>Reason: </strong>ready</span><span class='fact'><strong>Media: </strong>localized</span><span class='fact'><strong>Source: </strong>ThinkWiki Channel</span><span class='fact'><strong>Author: </strong>ThinkWiki Team</span><span class='fact'><strong>Published: </strong>2026-06-20 10:00:00</span><span class='fact'><strong>Quality: </strong>ready</span><span class='fact'><strong>Attempts: </strong>2</span><span class='fact'><strong>Elapsed: </strong>1.2s</span><span class='fact'><strong>Media files: </strong>1/1</span><span class='fact'><strong>Media dir: </strong>normalized/assets/inbox/2026-06-20-team-retrospective</span><a class='fact fact-link' href='https://mp.weixin.qq.com/s/thinkwiki-demo' target='_blank' rel='noopener'><strong>URL: </strong>https://mp.weixin.qq.com/s/thinkwiki-demo</a></div><div class='path'><code>normalized/inbox/2026-06-20-team-retrospective.md</code></div><div class='quality-note'>Wait mode captured a fuller article body.</div><div class='quality-note'>The capture looks complete enough for final review before formal ingest.</div><div class='quality-note'>Web metadata looks complete enough for final review before formal ingest.</div><div class='actions'><a href='../../normalized/inbox/2026-06-20-team-retrospective.md' target='_blank' rel='noopener'>Open normalized note</a><a href='../index.html' target='_blank' rel='noopener'>Open workspace home</a><a href='../../normalized/inbox/2026-06-20-team-retrospective.json' target='_blank' rel='noopener'>Open metadata</a></div><div class='command-label'>Next ingest command</div><pre>python scripts/thinkwiki ingest --root &lt;wiki-root&gt; --source normalized/inbox/2026-06-20-team-retrospective.md</pre></article></div></section>
+<section class='group' id='review'><div class='group-head'><div><h2>Needs Review</h2><p>These captures are usually readable, but you should still verify the source, author, publish date, or article completeness.</p></div><span class='badge'>Items 0</span></div><div class='group-commands'><div class='command-label'>Recommended next commands</div><div class='empty small'>No recommended commands for this section yet.</div></div><div class='cards'><div class='empty'>There are no items in review right now.</div></div></section>
+<section class='group' id='weak'><div class='group-head'><div><h2>Weak Captures</h2><p>Review these captures manually first to confirm they are not loading pages, summary-only pages, or low-information captures.</p></div><span class='badge'>Items 0</span></div><div class='group-commands'><div class='command-label'>Recommended next commands</div><div class='empty small'>No recommended commands for this section yet.</div></div><div class='cards'><div class='empty'>There are no weak captures right now.</div></div></section>
+  </main>
+</body>
+</html>

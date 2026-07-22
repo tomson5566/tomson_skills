@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ThinkWiki Graph Report</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121935;
+      --text: #edf2ff;
+      --muted: #a8b3cf;
+      --border: rgba(255,255,255,0.1);
+      --accent: #8ab4ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #0b1020 0%, #10172f 100%);
+      color: var(--text);
+      padding: 24px;
+    }
+    .shell {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      background: rgba(9, 13, 28, 0.86);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 28px;
+    }
+    h1, h2, p { margin-top: 0; }
+    .lead {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .meta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 16px 0 24px;
+    }
+    .badge {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 12px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.03);
+      font-size: 0.92rem;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin: 24px 0;
+    }
+    .stat {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: 18px;
+      padding: 16px;
+    }
+    .stat strong {
+      display: block;
+      font-size: 1.4rem;
+      margin-bottom: 6px;
+    }
+    .stat span {
+      color: var(--muted);
+    }
+    .layout {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 18px;
+    }
+    .panel {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      border-radius: 18px;
+      padding: 18px;
+    }
+    .panel p {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .bullet-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      display: grid;
+      gap: 10px;
+      line-height: 1.5;
+    }
+    .records {
+      display: grid;
+      gap: 10px;
+    }
+    .record-card {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: 16px;
+      padding: 14px;
+    }
+    .record-card strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+    .record-meta {
+      color: var(--accent);
+      font-size: 0.88rem;
+      margin-bottom: 8px;
+    }
+    .record-card p {
+      margin-bottom: 0;
+    }
+    .empty {
+      border: 1px dashed var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      color: var(--muted);
+    }
+    a {
+      color: var(--accent);
+    }
+    @media (max-width: 860px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <h1>ThinkWiki Graph Report</h1>
+    <p class="lead">The current key page is AI Native Team. The main pages already have a basic connection structure. There are 1 high-degree thin pages worth strengthening first. There are 8 suggested links ready for review.</p>
+    <div class="meta">
+      <span class="badge">Generated 2026-06-23</span>
+      <span class="badge">Pages 11</span>
+      <span class="badge">Relations 41</span>
+      <span class="badge">Entities 0</span>
+      <span class="badge">Aliases 0</span>
+      <span class="badge"><a href="index.html">Open Graph</a></span>
+      <span class="badge"><a href="../index.html">Open Workspace Home</a></span>
+    </div>
+
+    <section>
+      <h2>Health Summary</h2>
+      <div class="stats">
+        <div class='stat'><strong>11</strong><span>Pages</span></div>
+<div class='stat'><strong>41</strong><span>Relations</span></div>
+<div class='stat'><strong>0</strong><span>Entities</span></div>
+<div class='stat'><strong>0</strong><span>Aliased Entities</span></div>
+<div class='stat'><strong>0</strong><span>Aliases</span></div>
+<div class='stat'><strong>0</strong><span>Ambiguous Alias Groups</span></div>
+<div class='stat'><strong>0</strong><span>Ambiguous Entities</span></div>
+<div class='stat'><strong>0</strong><span>Isolated Entities</span></div>
+<div class='stat'><strong>7.45</strong><span>Average Degree</span></div>
+<div class='stat'><strong>0</strong><span>Isolated Pages</span></div>
+<div class='stat'><strong>0</strong><span>Weak Pages</span></div>
+<div class='stat'><strong>5</strong><span>Bridge Pages</span></div>
+<div class='stat'><strong>8</strong><span>Suggested Links</span></div>
+<div class='stat'><strong>1</strong><span>Hub Stubs</span></div>
+<div class='stat'><strong>0</strong><span>Fragile Bridges</span></div>
+<div class='stat'><strong>0</strong><span>Isolated Clusters</span></div>
+      </div>
+    </section>
+
+    <div class="layout">
+      <section class="panel">
+        <h2>Top Actions</h2>
+        <p>Start with the graph issues that most affect navigation and maintainability.</p>
+        <ul class='bullet-list'><li>Strengthen high-degree thin pages with better summaries, context, and sources.</li><li>Review suggested links and convert strong candidates into explicit page links.</li></ul>
+      </section>
+      <section class="panel">
+        <h2>Key Pages</h2>
+        <p>Read or strengthen these pages first because they matter most to the current graph structure.</p>
+        <div class="records"><div class='record-card'><strong>AI Native Team</strong><div class='record-meta'>concept | score=70</div><p>Degree 14, inbound 7, spanning 6 neighbor types.</p></div>
+<div class='record-card'><strong>Execution Spec</strong><div class='record-meta'>concept | score=50</div><p>Degree 10, inbound 5, spanning 4 neighbor types.</p></div>
+<div class='record-card'><strong>Execution Policy</strong><div class='record-meta'>decision | score=46</div><p>Degree 8, inbound 6, spanning 4 neighbor types.</p></div>
+<div class='record-card'><strong>Eval Loop Notes</strong><div class='record-meta'>source | score=44</div><p>Degree 8, inbound 6, spanning 3 neighbor types.</p></div>
+<div class='record-card'><strong>Platform Spec</strong><div class='record-meta'>source | score=42</div><p>Degree 8, inbound 5, spanning 3 neighbor types.</p></div>
+<div class='record-card'><strong>Eval Loops</strong><div class='record-meta'>topic | score=38</div><p>Degree 8, inbound 3, spanning 3 neighbor types.</p></div></div>
+      </section>
+      <section class="panel">
+        <h2>Bridge Pages</h2>
+        <p>These pages connect different node types or topical regions.</p>
+        <div class="records"><div class='record-card'><strong>AI Native Team</strong><div class='record-meta'>concept | score=35</div><p>Connects 6 page types and works well as a bridge.</p></div>
+<div class='record-card'><strong>Execution Spec</strong><div class='record-meta'>concept | score=25</div><p>Connects 4 page types and works well as a bridge.</p></div>
+<div class='record-card'><strong>Execution Policy</strong><div class='record-meta'>decision | score=23</div><p>Connects 4 page types and works well as a bridge.</p></div>
+<div class='record-card'><strong>Eval Loop Notes</strong><div class='record-meta'>source | score=20</div><p>Connects 3 page types and works well as a bridge.</p></div>
+<div class='record-card'><strong>Eval Loops</strong><div class='record-meta'>topic | score=20</div><p>Connects 3 page types and works well as a bridge.</p></div></div>
+      </section>
+      <section class="panel">
+        <h2>Pages That Need Links</h2>
+        <p>This section shows isolated pages and weakly connected pages that should gain links first.</p>
+        <div class="records"><div class='empty'>No isolated or weak pages.</div></div>
+      </section>
+      <section class="panel">
+        <h2>Entities That Need Links</h2>
+        <p>These entities have been identified but still lack enough knowledge-graph connections.</p>
+        <div class="records"><div class='empty'>No isolated entities.</div></div>
+      </section>
+      <section class="panel">
+        <h2>Ambiguous Entity Merge Candidates</h2>
+        <p>These identity keys match multiple entity pages and should be reviewed before any canonical merge.</p>
+        <div class="records"><div class='empty'>No ambiguous merge candidates.</div></div>
+      </section>
+      <section class="panel">
+        <h2>Hub Stubs</h2>
+        <p>These pages have many relations but thin content, so improving summaries and context usually pays off first.</p>
+        <div class="records"><div class='record-card'><strong>Model Platform</strong><div class='record-meta'>topic | degree=8</div><p>Degree is 8, but the summary is only 76 characters long.</p></div></div>
+      </section>
+      <section class="panel">
+        <h2>Fragile Bridges</h2>
+        <p>These structures rely on very few pages to keep cross-topic links alive, which makes them fragile.</p>
+        <div class="records"><div class='empty'>No fragile bridges.</div></div>
+      </section>
+      <section class="panel">
+        <h2>Isolated Clusters</h2>
+        <p>These pages already form small clusters but are not connected back to the main graph yet.</p>
+        <div class="records"><div class='empty'>No isolated clusters.</div></div>
+      </section>
+      <section class="panel">
+        <h2>Suggested Links</h2>
+        <p>These are high-confidence candidate relations that could become explicit links after review.</p>
+        <div class="records"><div class='record-card'><strong>wiki/decisions/context-budget.md &lt;-&gt; wiki/decisions/execution-policy.md</strong><div class='record-meta'>suggested link | score=17</div><p>High-confidence structural suggestion.</p></div>
+<div class='record-card'><strong>wiki/topics/eval-loops.md &lt;-&gt; wiki/topics/model-platform.md</strong><div class='record-meta'>suggested link | score=17</div><p>High-confidence structural suggestion.</p></div>
+<div class='record-card'><strong>wiki/syntheses/delivery-system.md &lt;-&gt; wiki/topics/model-platform.md</strong><div class='record-meta'>suggested link | score=13</div><p>High-confidence structural suggestion.</p></div>
+<div class='record-card'><strong>wiki/queries/what-makes-ai-native-team.md &lt;-&gt; wiki/syntheses/delivery-system.md</strong><div class='record-meta'>suggested link | score=13</div><p>High-confidence structural suggestion.</p></div>
+<div class='record-card'><strong>wiki/decisions/context-budget.md &lt;-&gt; wiki/syntheses/delivery-system.md</strong><div class='record-meta'>suggested link | score=12</div><p>High-confidence structural suggestion.</p></div>
+<div class='record-card'><strong>wiki/decisions/context-budget.md &lt;-&gt; wiki/topics/model-platform.md</strong><div class='record-meta'>suggested link | score=12</div><p>High-confidence structural suggestion.</p></div>
+<div class='record-card'><strong>wiki/syntheses/delivery-system.md &lt;-&gt; wiki/topics/eval-loops.md</strong><div class='record-meta'>suggested link | score=12</div><p>High-confidence structural suggestion.</p></div>
+<div class='record-card'><strong>wiki/decisions/execution-policy.md &lt;-&gt; wiki/sources/platform-spec.md</strong><div class='record-meta'>suggested link | score=10</div><p>High-confidence structural suggestion.</p></div></div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
