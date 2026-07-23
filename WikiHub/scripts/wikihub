@@ -1,0 +1,770 @@
+#!/usr/bin/env python3
+"""WikiHub unified CLI — WikiHub full features + per-workspace isolation.
+
+This CLI is the single entry point. Commands split into two groups:
+
+  - **Wiki operations** (init / clip / batch-ingest / serve / ask / graph / viewer /
+    query / crystallize / digest / doctor / health): forwarded to scripts_full/wikihub_full
+    (a renamed copy of WikiHub's dispatcher) which carries the full feature set.
+
+  - **Isolation guards** (list / status / stop / logs): native to WikiHub, enforce
+    per-workspace PID/port/log scoping and cross-workspace safety.
+
+NEVER touches anything outside the current workspace:
+- All wiki roots: <workspace>/<wiki-name>/
+- All PID / log files: <workspace>/.wikihub/<wiki-name>.{pid,log}
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shlex
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+# Resolve workspace from this script's location
+SCRIPT = Path(__file__).resolve()
+SKILL_DIR = SCRIPT.parent                                  # .../WikiHub/scripts
+SKILL_ROOT = SKILL_DIR.parent                              # .../WikiHub
+SKILLS_DIR = SKILL_ROOT.parent                             # .../skills
+WORKSPACE = SKILLS_DIR.parent                              # <workspace>
+WORKSPACE = Path(os.environ.get("WIKIHUB_WORKSPACE", WORKSPACE))
+
+SCRIPTS_FULL = SKILL_ROOT / "scripts_full" / "wikihub_full"  # full-feature dispatcher
+WIKIHUB_ENV = SKILL_ROOT / ".env"                            # WIKIHUB_* env config
+WIKIHUB_STATE = WORKSPACE / ".wikihub"                       # PID + logs
+
+# --- Color helpers ---
+def _c(code, s):
+    return f"\033[{code}m{s}\033[0m" if sys.stdout.isatty() else s
+GREEN = lambda s: _c("32", s)
+RED = lambda s: _c("31", s)
+YELLOW = lambda s: _c("33", s)
+BOLD = lambda s: _c("1", s)
+
+# --- Env loading ---
+
+def load_env() -> None:
+    """Source the WikiHub .env file into os.environ so subprocess scripts see WIKIHUB_* vars."""
+    if not WIKIHUB_ENV.exists():
+        return
+    for line in WIKIHUB_ENV.read_text(errors="replace").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k = k.strip()
+        v = v.strip().strip('"').strip("'")
+        # Don't override what's already in the environment
+        if k not in os.environ:
+            os.environ[k] = v
+
+# --- Helpers for isolation guards ---
+
+def ensure_state_dir():
+    WIKIHUB_STATE.mkdir(parents=True, exist_ok=True)
+
+def pid_file(name):
+    return WIKIHUB_STATE / f"{name}.pid"
+
+def log_file(name):
+    return WIKIHUB_STATE / f"{name}.log"
+
+def port_file(name):
+    return WIKIHUB_STATE / f"{name}.port"
+
+def is_pid_alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+def read_pid(name):
+    f = pid_file(name)
+    if not f.exists():
+        return None
+    try:
+        return int(f.read_text().strip())
+    except ValueError:
+        return None
+
+def port_in_use(port):
+    """Return PID using the port, or None if free.
+    On Linux, scans /proc/net/{tcp,tcp6} for the owning PID.
+    On other platforms, uses a socket bind test (returns 0 if port is busy, None if free).
+    """
+    # Try Linux /proc method first
+    hex_port = f"{port:04X}"
+    proc_available = False
+    for proto in ("tcp", "tcp6"):
+        try:
+            data = Path(f"/proc/net/{proto}").read_text()
+            proc_available = True
+        except FileNotFoundError:
+            continue
+        for line in data.splitlines()[1:]:
+            cols = line.split()
+            if len(cols) < 10:
+                continue
+            local = cols[1]
+            state = cols[3]
+            if ":" in local and local.split(":")[1].upper() == hex_port and state == "0A":
+                inode = cols[9]
+                for pid_dir in Path("/proc").iterdir():
+                    if not pid_dir.name.isdigit():
+                        continue
+                    fd_dir = pid_dir / "fd"
+                    try:
+                        for fd in fd_dir.iterdir():
+                            try:
+                                tgt = os.readlink(fd)
+                            except OSError:
+                                continue
+                            if tgt.endswith(f"[{inode}]"):
+                                return int(pid_dir.name)
+                    except (PermissionError, FileNotFoundError):
+                        continue
+
+    if proc_available:
+        return None
+
+    # Fallback: socket bind test (works on macOS, Windows, etc.)
+    import socket
+    for family in (socket.AF_INET, socket.AF_INET6):
+        try:
+            with socket.socket(family, socket.SOCK_STREAM) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                addr = "::" if family == socket.AF_INET6 else "0.0.0.0"
+                sock.bind((addr, port))
+        except OSError:
+            return 0  # Port is in use (PID unknown on non-Linux)
+    return None
+
+def find_free_port(preferred):
+    if port_in_use(preferred) is None:
+        return preferred
+    for p in range(8766, 9000):
+        if port_in_use(p) is None:
+            return p
+    raise RuntimeError("No free port in 8766..8999")
+
+# --- Wiki operations (forwarded to scripts_full/wikihub_full) ---
+
+def run_wikihub_full(name, args, extra_args=None, capture=False):
+    """Forward a subcommand to scripts_full/wikihub_full with --root <workspace>/<name>."""
+    load_env()
+    root = WORKSPACE / name
+    if not root.exists():
+        print(f"{RED('error')}: wiki '{name}' not found at {root}")
+        print(f"  run: wikihub init {name} --title '...'")
+        return 1
+    cmd = [sys.executable, str(SCRIPTS_FULL), args, "--root", str(root)]
+    if extra_args:
+        cmd.extend(extra_args)
+    # Pass through WIKIHUB_SKIP_BOOTSTRAP=1 so wikihub_full doesn't try to venv
+    env = dict(os.environ)
+    env.setdefault("WIKIHUB_SKIP_BOOTSTRAP", "1")
+    return subprocess.call(cmd, env=env)
+
+def cmd_init(args):
+    load_env()
+    root = WORKSPACE / args.name
+    title_args = ["--title", args.title or args.name]
+    if (root / ".wiki-schema.md").exists() and not args.force:
+        print(f"{RED('error')}: wiki '{args.name}' already exists")
+        return 1
+    root.mkdir(parents=True, exist_ok=True)
+    rc = run_wikihub_full(args.name, "init", title_args)
+    if rc == 0:
+        # Record the requested port for later serve
+        ensure_state_dir()
+        port_file(args.name).write_text(str(args.port or 8766))
+        print(f"  next: wikihub clip {args.name} --source <path>")
+        print(f"        wikihub serve {args.name}")
+    return rc
+
+def cmd_clip(args):
+    extra = ["--source", args.source]
+    if args.title:
+        extra += ["--title", args.title]
+    return run_wikihub_full(args.name, "clip", extra)
+
+def cmd_batch_ingest(args):
+    # Always pass --quality all to bypass local-heuristic "review" gate that
+    # would otherwise skip every item.
+    return run_wikihub_full(args.name, "batch-ingest", ["--quality", "all"])
+
+
+def cmd_ingest(args):
+    extra = []
+    if args.source:
+        extra += ["--source", args.source]
+    return run_wikihub_full(args.name, "ingest", extra)
+
+def cmd_ask(args):
+    question = " ".join(args.question)
+    extra = ["--question", question]
+    return run_wikihub_full(args.name, "ask", extra)
+
+def cmd_query(args):
+    question = " ".join(args.question)
+    extra = ["--question", question]
+    if args.title:
+        extra += ["--title", args.title]
+    return run_wikihub_full(args.name, "query", extra)
+
+def cmd_crystallize(args):
+    extra = []
+    if args.from_ask_id:
+        extra += ["--from-ask-id", args.from_ask_id]
+    if args.title:
+        extra += ["--title", args.title]
+    return run_wikihub_full(args.name, "crystallize", extra)
+
+def cmd_digest(args):
+    return run_wikihub_full(args.name, "digest")
+
+def cmd_viewer(args):
+    return run_wikihub_full(args.name, "viewer")
+
+def cmd_graph(args):
+    return run_wikihub_full(args.name, "graph")
+
+def cmd_graph_report(args):
+    return run_wikihub_full(args.name, "graph-report")
+
+def cmd_entity_review(args):
+    return run_wikihub_full(args.name, "entity-merge-review")
+
+def cmd_entity_apply(args):
+    extra = []
+    if args.identity_key:
+        extra += ["--identity-key", args.identity_key]
+    if args.canonical:
+        extra += ["--canonical", args.canonical]
+    return run_wikihub_full(args.name, "entity-merge-apply", extra)
+
+def cmd_inbox(args):
+    return run_wikihub_full(args.name, "inbox")
+
+def cmd_rebuild_index(args):
+    return run_wikihub_full(args.name, "rebuild-index")
+
+def cmd_doctor(args):
+    return run_wikihub_full(args.name, "doctor")
+
+def cmd_rebuild(args):
+    """One-shot: batch-ingest + viewer + graph + inbox.
+    Saves you from running four commands after every new ingest."""
+    print(f"{BOLD('rebuild')}: {args.name}")
+    steps = [
+        ("batch-ingest", ["--quality", "all"]),
+        ("inbox", []),
+        ("graph", []),
+        ("viewer", []),
+    ]
+    failed = []
+    for label, extra in steps:
+        print(f"  → {label}")
+        rc = run_wikihub_full(args.name, label, extra)
+        if rc != 0:
+            failed.append(label)
+            print(f"    {RED('failed')}: {label} returned {rc}")
+    if failed:
+        print(f"{RED('partial')}: failed steps: {', '.join(failed)}")
+        return 1
+    print(f"{GREEN('ok')}: rebuild complete — viewer/graph/inbox refreshed")
+    return 0
+
+def cmd_health(args):
+    return run_wikihub_full(args.name, "health")
+
+# --- Serve (with isolation guards) ---
+
+def cmd_serve(args):
+    """Serve the wiki output dir with WikiHub's PID/port/banner guards.
+    Underlying http.server is from scripts_full/serve_outputs.py."""
+    load_env()
+    name = args.name
+    root = WORKSPACE / name
+    if not root.exists():
+        print(f"{RED('error')}: wiki '{name}' not found")
+        return 1
+    if not (root / "output").exists():
+        print(f"{YELLOW('warn')}: no output dir; running viewer first to generate it")
+        run_wikihub_full(name, "viewer")
+    ensure_state_dir()
+    existing_pid = read_pid(name)
+    if existing_pid and is_pid_alive(existing_pid):
+        print(f"{YELLOW('warn')}: '{name}' already running (pid {existing_pid}). Use `wikihub stop {name}` first.")
+        return 1
+    preferred = args.port or int(port_file(name).read_text().strip()) if port_file(name).exists() else 8766
+    port = find_free_port(preferred)
+    if port != preferred:
+        print(f"{YELLOW('note')}: port {preferred} busy; using {port} instead.")
+    host = args.host or "0.0.0.0"
+    serve_script = SCRIPTS_FULL.parent / "serve_outputs.py"
+    if not serve_script.exists():
+        # Fallback to plain python http.server
+        cmd = [sys.executable, "-m", "http.server", str(port), "--bind", host, "--directory", str(root / "output")]
+    else:
+        cmd = [sys.executable, str(serve_script), "--root", str(root), "--host", host, "--port", str(port), "--allow-lan"]
+    log = open(log_file(name), "wb")
+    proc = subprocess.Popen(cmd, stdout=log, stderr=log, cwd=str(root / "output"), start_new_session=True)
+    pid_file(name).write_text(str(proc.pid))
+    port_file(name).write_text(str(port))
+    log.close()
+    # Give it a moment to bind
+    time.sleep(0.3)
+    if not is_pid_alive(proc.pid):
+        print(f"{RED('error')}: server died on startup; check `wikihub logs {name}`")
+        return 1
+    print(f"{GREEN('ok')}: serving '{name}' on http://localhost:{port}/  (pid {proc.pid})")
+    print(f"  log:  {log_file(name)}")
+    print(f"  pid:  {pid_file(name)}")
+    return 0
+
+# --- Isolation guards (native) ---
+
+def cmd_list(args):
+    ensure_state_dir()
+    rows = []
+    for f in sorted(WIKIHUB_STATE.glob("*.pid")):
+        name = f.stem
+        pid = read_pid(name)
+        alive = pid and is_pid_alive(pid)
+        pf = port_file(name)
+        port = int(pf.read_text().strip()) if pf.exists() else "-"
+        schema = WORKSPACE / name / ".wiki-schema.md"
+        title = "-"
+        if schema.exists():
+            # Title is either on the H1 line ("# Wiki Schema · <title>") or
+            # in the bullet "- 名称：<title>" two lines down. Prefer the
+            # bullet form (cleaner) and fall back to the H1.
+            for line in schema.read_text().splitlines():
+                line = line.strip()
+                if line.startswith("名称：") or line.startswith("Name:"):
+                    title = line.split("：", 1)[-1].split(":", 1)[-1].strip()
+                    break
+            else:
+                first = schema.read_text().splitlines()[0].lstrip("# ").strip()
+                # Strip "Wiki Schema · " prefix if present
+                if first.startswith("Wiki Schema"):
+                    first = first.split("·", 1)[-1].strip()
+                if first:
+                    title = first
+        rows.append((name, port, pid or "-", "running" if alive else "stale", title))
+    if not rows:
+        print(f"{YELLOW('none')}: no wikis registered in {WIKIHUB_STATE}")
+        return 0
+    print(f"{BOLD('NAME'.ljust(22))} {BOLD('PORT'.ljust(7))} {BOLD('PID'.ljust(7))} {BOLD('STATUS'.ljust(10))} TITLE")
+    for name, port, pid, status, title in rows:
+        status_c = GREEN(status) if status == "running" else YELLOW(status)
+        print(f"{name.ljust(22)} {str(port).ljust(7)} {str(pid).ljust(7)} {status_c.ljust(20)} {title}")
+    print()
+    print(f"workspace: {WORKSPACE}")
+    return 0
+
+def cmd_status(args):
+    name = args.name
+    pid = read_pid(name)
+    if not pid:
+        print(f"{YELLOW('not running')}: '{name}' has no pid file")
+        return 1
+    alive = is_pid_alive(pid)
+    pf = port_file(name)
+    port = int(pf.read_text().strip()) if pf.exists() else "-"
+    print(f"name:   {name}")
+    print(f"pid:    {pid} ({'alive' if alive else 'dead'})")
+    print(f"port:   {port}")
+    print(f"root:   {WORKSPACE / name}")
+    print(f"log:    {log_file(name)}")
+    return 0
+
+def cmd_stop(args):
+    name = args.name
+    pid = read_pid(name)
+    if not pid:
+        print(f"{YELLOW('not running')}: '{name}' has no pid file")
+        return 0
+    if not is_pid_alive(pid):
+        print(f"{YELLOW('cleanup')}: pid {pid} not alive; removing stale pid file")
+        pid_file(name).unlink(missing_ok=True)
+        port_file(name).unlink(missing_ok=True)
+        return 0
+    # Safety: confirm PID belongs to our workspace by reading /proc/<pid>/cwd
+    try:
+        cwd = os.readlink(f"/proc/{pid}/cwd")
+        wiki_root_resolved = (WORKSPACE / name).resolve()
+        cwd_resolved = Path(cwd).resolve()
+        if not (cwd_resolved == wiki_root_resolved or wiki_root_resolved in cwd_resolved.parents):
+            print(f"{RED('refuse')}: pid {pid} cwd is {cwd}, not under {wiki_root_resolved}")
+            return 2
+    except OSError as exc:
+        print(f"{RED('refuse')}: cannot verify pid {pid} cwd: {exc}")
+        return 2
+    print(f"stopping '{name}' (pid {pid})...")
+    try:
+        os.kill(pid, signal.SIGTERM)
+        for _ in range(20):
+            if not is_pid_alive(pid):
+                break
+            time.sleep(0.1)
+        else:
+            os.kill(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    pid_file(name).unlink(missing_ok=True)
+    port_file(name).unlink(missing_ok=True)
+    print(f"{GREEN('ok')}: stopped '{name}'")
+    return 0
+
+def cmd_logs(args):
+    name = args.name
+    lf = log_file(name)
+    if not lf.exists():
+        print(f"{YELLOW('no log')}: {lf}")
+        return 1
+    text = lf.read_text(errors="replace")
+    if args.tail:
+        lines = text.splitlines()[-args.tail:]
+        print("\n".join(lines))
+    else:
+        print(text)
+    return 0
+
+# --- Export / Import (痛点 2: 知识库迁移) ---
+
+def build_manifest(name, *, include_embeddings):
+    """Build a JSON manifest describing the wiki being exported."""
+    root = WORKSPACE / name
+    schema = root / ".wiki-schema.md"
+    title = "-"
+    if schema.exists():
+        for line in schema.read_text().splitlines():
+            stripped = line.strip()
+            # Strip leading bullet marker "- " or "* " before matching
+            for prefix in ("- ", "* ", "• "):
+                if stripped.startswith(prefix):
+                    stripped = stripped[len(prefix):]
+                    break
+            if stripped.startswith("名称：") or stripped.startswith("Name:"):
+                title = stripped.split("：", 1)[-1].split(":", 1)[-1].strip()
+                break
+
+    pf = port_file(name)
+    port = int(pf.read_text().strip()) if pf.exists() else None
+
+    sources = sorted((root / "wiki" / "sources").glob("*.md")) if (root / "wiki" / "sources").exists() else []
+    entities = sorted((root / "wiki" / "entities").glob("*.md")) if (root / "wiki" / "entities").exists() else []
+
+    embed_cache_dir = root / "embedding_cache"
+    has_embeddings = embed_cache_dir.exists() and any(embed_cache_dir.iterdir())
+
+    return {
+        "manifest_version": 1,
+        "wiki": name,
+        "title": title,
+        "source_workspace": str(WORKSPACE),
+        "suggested_port": port,
+        "source_count": len(sources),
+        "entity_count": len(entities),
+        "has_embeddings": has_embeddings and include_embeddings,
+        "embedding_model": os.environ.get("WIKIHUB_EMBED_MODEL", ""),
+        "exported_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "wikihub_version": "1.2.0",
+    }
+
+def cmd_export(args):
+    """Export a wiki into a portable tarball.
+
+    Layout:
+      wikihub-export-<name>-<timestamp>.tar.gz
+        manifest.json            ← versioned metadata
+        data/<wiki>/             ← the wiki root contents
+        .wikihub/<name>.port     ← port hint (optional)
+    """
+    import tarfile
+    name = args.name
+    root = WORKSPACE / name
+    if not root.exists():
+        print(f"{RED('error')}: wiki '{name}' not found")
+        return 1
+    ensure_state_dir()
+
+    out = Path(args.out).expanduser().resolve() if args.out else Path.cwd() / f"wikihub-export-{name}-{time.strftime('%Y%m%d-%H%M%S')}.tar.gz"
+    if out.exists() and not args.force:
+        print(f"{RED('error')}: {out} exists; use --force to overwrite")
+        return 1
+
+    manifest = build_manifest(name, include_embeddings=args.embeddings)
+    tmp_dir = Path(tempfile.mkdtemp(prefix="wikihub-export-"))
+    try:
+        bundle = tmp_dir / "bundle"
+        bundle.mkdir()
+        # manifest.json
+        (bundle / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
+        # data/<wiki>/ — exclude embedding_cache unless --embeddings
+        data_dst = bundle / "data" / name
+        data_dst.mkdir(parents=True)
+        # Walk root and copy everything except embedding_cache when --no-embeddings
+        skip_dirs = set()
+        if not args.embeddings:
+            skip_dirs.add("embedding_cache")
+        for item in root.rglob("*"):
+            rel = item.relative_to(root)
+            # Skip embedding_cache when not requested
+            if any(part in skip_dirs for part in rel.parts):
+                continue
+            target = data_dst / rel
+            if item.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+            else:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                # Use copy to preserve content; skip __pycache__ cruft
+                if "__pycache__" in str(rel):
+                    continue
+                shutil.copy2(item, target)
+        # port hint
+        pf = port_file(name)
+        if pf.exists():
+            hint_dir = bundle / ".wikihub"
+            hint_dir.mkdir(exist_ok=True)
+            shutil.copy2(pf, hint_dir / f"{name}.port")
+        # create tarball
+        with tarfile.open(out, "w:gz") as tar:
+            tar.add(bundle, arcname=".")
+        size = out.stat().st_size
+        print(f"{GREEN('ok')}: exported '{name}' → {out}  ({size:,} bytes)")
+        print(f"  manifest: {manifest['source_count']} sources, {manifest['entity_count']} entities, embed={'yes' if manifest['has_embeddings'] else 'no'}")
+        print(f"  import on another machine with:  wikihub import {out} --port <N>")
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+    return 0
+
+def cmd_import(args):
+    """Import a wiki tarball produced by `wikihub export`.
+
+    Safety: refuses to overwrite an existing wiki unless --force.
+    Skips the existing-workspace's old `.wikihub/<name>.port` so the new
+    workspace can claim a fresh port.
+    """
+    import tarfile
+    src = Path(args.input).expanduser().resolve()
+    if not src.exists():
+        print(f"{RED('error')}: {src} not found")
+        return 1
+    if not tarfile.is_tarfile(src):
+        print(f"{RED('error')}: {src} is not a tarfile")
+        return 1
+
+    tmp_dir = Path(tempfile.mkdtemp(prefix="wikihub-import-"))
+    try:
+        with tarfile.open(src, "r:gz") as tar:
+            tar.extractall(tmp_dir)
+        manifest_path = tmp_dir / "manifest.json"
+        if not manifest_path.exists():
+            print(f"{RED('error')}: manifest.json missing in archive")
+            return 1
+        manifest = json.loads(manifest_path.read_text())
+        if manifest.get("manifest_version") != 1:
+            print(f"{RED('error')}: unsupported manifest version {manifest.get('manifest_version')}")
+            return 1
+        name = manifest["wiki"]
+        data_src = tmp_dir / "data" / name
+        if not data_src.exists():
+            print(f"{RED('error')}: data/{name}/ missing in archive")
+            return 1
+        dst = WORKSPACE / name
+        if dst.exists() and not args.force:
+            print(f"{RED('error')}: wiki '{name}' already exists at {dst}; use --force")
+            return 1
+        dst.mkdir(parents=True, exist_ok=True)
+        # copy data
+        for item in data_src.rglob("*"):
+            rel = item.relative_to(data_src)
+            if "__pycache__" in str(rel):
+                continue
+            target = dst / rel
+            if item.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+            else:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(item, target)
+
+        # Choose port: explicit --port > manifest.suggested_port > auto
+        ensure_state_dir()
+        if args.port:
+            chosen_port = args.port
+        elif manifest.get("suggested_port"):
+            chosen_port = find_free_port(manifest["suggested_port"])
+            if chosen_port != manifest["suggested_port"]:
+                print(f"{YELLOW('note')}: suggested port {manifest['suggested_port']} busy, using {chosen_port}")
+        else:
+            chosen_port = find_free_port(8766)
+        port_file(name).write_text(str(chosen_port))
+
+        # Record provenance
+        log_entry = (
+            f"[{time.strftime('%Y-%m-%dT%H:%M:%S')}] import | "
+            f"from={manifest.get('source_workspace', '?')} | "
+            f"manifest={manifest.get('exported_at', '?')}"
+        )
+        log_path = dst / "log.md"
+        if log_path.exists():
+            with log_path.open("a") as f:
+                f.write(f"\n{log_entry}\n")
+        print(f"{GREEN('ok')}: imported '{name}' → {dst}")
+        print(f"  port: {chosen_port}  ({manifest['source_count']} sources, {manifest['entity_count']} entities)")
+        if not manifest.get("has_embeddings"):
+            print(f"  {YELLOW('embeddings not included')}: run `wikihub rebuild {name}` to regenerate")
+        print(f"  next: wikihub serve {name}")
+        return 0
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+def cmd_doctor_preflight(args):
+    """Pre-flight check: verify environment is ready for clip / rebuild / serve.
+
+    Run this on a NEW machine before importing or creating wikis, to surface
+    missing dependencies and unconfigured .env before they bite you.
+    """
+    import shutil as _shutil
+    checks = []
+
+    def add(name, ok, detail=""):
+        checks.append((name, ok, detail))
+
+    # python version
+    py_ok = sys.version_info >= (3, 8)
+    add("python>=3.8", py_ok, f"have {sys.version_info.major}.{sys.version_info.minor}")
+
+    # markitdown availability (for .docx/.pptx/.pdf clip)
+    try:
+        import markitdown  # noqa
+        add("markitdown importable", True, f"version={getattr(markitdown, '__version__', '?')}")
+    except ImportError as e:
+        add("markitdown importable", False, str(e))
+
+    # WIKIHUB_EMBED_* configured
+    load_env()
+    embed_ok = bool(os.environ.get("WIKIHUB_EMBED_API_KEY") and os.environ.get("WIKIHUB_EMBED_BASE_URL") and os.environ.get("WIKIHUB_EMBED_MODEL"))
+    add("WIKIHUB_EMBED_* configured", embed_ok,
+        f"model={os.environ.get('WIKIHUB_EMBED_MODEL', '?')} base_url={os.environ.get('WIKIHUB_EMBED_BASE_URL', '?')}")
+
+    # WIKIHUB_LLM_* configured
+    llm_ok = bool(os.environ.get("WIKIHUB_LLM_API_KEY") and os.environ.get("WIKIHUB_LLM_BASE_URL") and os.environ.get("WIKIHUB_LLM_MODEL"))
+    add("WIKIHUB_LLM_* configured", llm_ok,
+        f"model={os.environ.get('WIKIHUB_LLM_MODEL', '?')} base_url={os.environ.get('WIKIHUB_LLM_BASE_URL', '?')}")
+
+    # Embed endpoint reachable
+    if embed_ok:
+        try:
+            import urllib.request
+            req = urllib.request.Request(os.environ["WIKIHUB_EMBED_BASE_URL"].replace("/embeddings", "/models"), method="GET")
+            urllib.request.urlopen(req, timeout=3)
+            add("embed endpoint reachable", True, "probe ok")
+        except Exception as e:
+            add("embed endpoint reachable", False, str(e)[:60])
+
+    # LLM endpoint reachable (cheap HEAD-style probe)
+    if llm_ok:
+        try:
+            import urllib.request
+            req = urllib.request.Request(os.environ["WIKIHUB_LLM_BASE_URL"].rstrip("/") + "/models",
+                                         headers={"Authorization": f"Bearer {os.environ['WIKIHUB_LLM_API_KEY']}"},
+                                         method="GET")
+            urllib.request.urlopen(req, timeout=3)
+            add("LLM endpoint reachable", True, "probe ok")
+        except Exception as e:
+            add("LLM endpoint reachable", False, str(e)[:60])
+
+    # LibreOffice for .doc support
+    soffice_paths = [
+        "/opt/libreoffice26.2/program/soffice",
+        "/usr/bin/soffice",
+        "/usr/bin/libreoffice",
+    ]
+    soffice_found = next((p for p in soffice_paths if Path(p).exists()), None)
+    add("LibreOffice for .doc support", bool(soffice_found), soffice_found or "not found")
+
+    # workspace writable
+    add("workspace writable", _shutil.os.access(str(WORKSPACE), _shutil.os.W_OK), str(WORKSPACE))
+
+    # Print results
+    failed = 0
+    for name, ok, detail in checks:
+        icon = GREEN("✓") if ok else RED("✗")
+        line = f"  {icon} {name}"
+        if detail:
+            line += f"  ({detail})"
+        print(line)
+        if not ok:
+            failed += 1
+    print()
+    if failed:
+        print(f"{RED(failed)} check(s) failed — see above")
+        print(f"  fix tips:")
+        print(f"    • markitdown:  pip install 'markitdown[all]'")
+        print(f"    • LibreOffice: yum install -y libreoffice-headless")
+        print(f"    • .env:        copy .env.example to .env and fill in keys")
+        print(f"    • workspace:   set WIKIHUB_WORKSPACE=/path/to/workspace")
+        return 1
+    print(f"{GREEN('ok')}: all preflight checks passed")
+    return 0
+
+# --- Argparse ---
+
+def main():
+    p = argparse.ArgumentParser(prog="wikihub",
+        description="WikiHub — multi-workspace multi-wiki isolation (WikiHub full features)")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    # Wiki operations
+    p_init = sub.add_parser("init"); p_init.add_argument("name"); p_init.add_argument("--title"); p_init.add_argument("--port", type=int, default=8766); p_init.add_argument("--force", action="store_true"); p_init.set_defaults(func=cmd_init)
+    p_clip = sub.add_parser("clip"); p_clip.add_argument("name"); p_clip.add_argument("--source", required=True); p_clip.add_argument("--title"); p_clip.set_defaults(func=cmd_clip)
+    p_bi = sub.add_parser("batch-ingest"); p_bi.add_argument("name"); p_bi.set_defaults(func=cmd_batch_ingest)
+    p_ingest = sub.add_parser("ingest"); p_ingest.add_argument("name"); p_ingest.add_argument("--source"); p_ingest.set_defaults(func=cmd_ingest)
+    p_ask = sub.add_parser("ask"); p_ask.add_argument("name"); p_ask.add_argument("question", nargs="+"); p_ask.set_defaults(func=cmd_ask)
+    p_query = sub.add_parser("query"); p_query.add_argument("name"); p_query.add_argument("question", nargs="+"); p_query.add_argument("--title"); p_query.set_defaults(func=cmd_query)
+    p_cry = sub.add_parser("crystallize"); p_cry.add_argument("name"); p_cry.add_argument("--from-ask-id"); p_cry.add_argument("--title"); p_cry.set_defaults(func=cmd_crystallize)
+    p_digest = sub.add_parser("digest"); p_digest.add_argument("name"); p_digest.set_defaults(func=cmd_digest)
+    p_viewer = sub.add_parser("viewer"); p_viewer.add_argument("name"); p_viewer.set_defaults(func=cmd_viewer)
+    p_graph = sub.add_parser("graph"); p_graph.add_argument("name"); p_graph.set_defaults(func=cmd_graph)
+    p_gr = sub.add_parser("graph-report"); p_gr.add_argument("name"); p_gr.set_defaults(func=cmd_graph_report)
+    p_er = sub.add_parser("entity-merge-review"); p_er.add_argument("name"); p_er.set_defaults(func=cmd_entity_review)
+    p_ea = sub.add_parser("entity-merge-apply"); p_ea.add_argument("name"); p_ea.add_argument("--identity-key"); p_ea.add_argument("--canonical"); p_ea.set_defaults(func=cmd_entity_apply)
+    p_inbox = sub.add_parser("inbox"); p_inbox.add_argument("name"); p_inbox.set_defaults(func=cmd_inbox)
+    p_ri = sub.add_parser("rebuild-index"); p_ri.add_argument("name"); p_ri.set_defaults(func=cmd_rebuild_index)
+    p_rebuild = sub.add_parser("rebuild"); p_rebuild.add_argument("name"); p_rebuild.set_defaults(func=cmd_rebuild)
+    p_doc = sub.add_parser("doctor"); p_doc.add_argument("name"); p_doc.set_defaults(func=cmd_doctor)
+    p_health = sub.add_parser("health"); p_health.add_argument("name"); p_health.set_defaults(func=cmd_health)
+
+    # Isolation guards
+    p_serve = sub.add_parser("serve"); p_serve.add_argument("name"); p_serve.add_argument("--port", type=int, default=0); p_serve.add_argument("--host", default="0.0.0.0"); p_serve.set_defaults(func=cmd_serve)
+    p_list = sub.add_parser("list"); p_list.set_defaults(func=cmd_list)
+    p_status = sub.add_parser("status"); p_status.add_argument("name"); p_status.set_defaults(func=cmd_status)
+    p_stop = sub.add_parser("stop"); p_stop.add_argument("name"); p_stop.set_defaults(func=cmd_stop)
+    p_logs = sub.add_parser("logs"); p_logs.add_argument("name"); p_logs.add_argument("--tail", type=int); p_logs.set_defaults(func=cmd_logs)
+
+    # Migration commands (痛点 2)
+    p_export = sub.add_parser("export"); p_export.add_argument("name"); p_export.add_argument("--out"); p_export.add_argument("--force", action="store_true"); p_export.add_argument("--embeddings", dest="embeddings", action="store_true"); p_export.add_argument("--no-embeddings", dest="embeddings", action="store_false"); p_export.set_defaults(embeddings=False, func=cmd_export)
+    p_import = sub.add_parser("import"); p_import.add_argument("input"); p_import.add_argument("--port", type=int); p_import.add_argument("--force", action="store_true"); p_import.set_defaults(func=cmd_import)
+
+    # Pre-flight doctor (痛点 4)
+    p_preflight = sub.add_parser("preflight"); p_preflight.set_defaults(func=cmd_doctor_preflight)
+
+    args = p.parse_args()
+    return args.func(args)
+
+if __name__ == "__main__":
+    sys.exit(main())

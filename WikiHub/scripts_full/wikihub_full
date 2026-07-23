@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+"""
+WikiHub Script: wikihub_full
+
+Purpose:
+- Dispatch all public WikiHub commands through one stable entry point and bootstrap the runtime when needed.
+
+Usage:
+- Run as `python scripts/wikihub_full <command> [args]`.
+- Run `python scripts/<script> --help` for direct CLI details when the file exposes its own arguments.
+"""
+
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+from bootstrap_runtime import venv_python
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+SYSTEM_PYTHON = os.environ.get("PYTHON", "").strip() or sys.executable or "python"
+
+COMMAND_TO_SCRIPT = {
+    "bootstrap": "bootstrap_runtime.py",
+    "init": "init_wiki.py",
+    "clip": "clip.py",
+    "inbox": "build_inbox.py",
+    "batch-clip": "batch_clip.py",
+    "batch-ingest": "batch_ingest.py",
+    "convert": "convert_source.py",
+    "ingest": "ingest.py",
+    "ask": "ask.py",
+    "correct": "correct.py",
+    "query": "query_wiki.py",
+    "digest": "digest.py",
+    "crystallize": "crystallize.py",
+    "rebuild-index": "rebuild_index.py",
+    "lint": "lint_wiki.py",
+    "graph": "build_graph.py",
+    "graph-report": "graph_report.py",
+    "entity-merge-review": "entity_merge_review.py",
+    "entity-merge-apply": "entity_merge_apply.py",
+    "viewer": "build_viewer.py",
+    "serve": "serve_outputs.py",
+    "health": "health.py",
+    "status": "status.py",
+    "doctor": "doctor.py",
+}
+
+HELP_COMMANDS = {"help", "-h", "--help"}
+
+
+def usage() -> str:
+    return """WikiHub unified entry
+
+Usage:
+  python scripts/wikihub_full <command> [args]
+
+Commands:
+  bootstrap       -> bootstrap_runtime.py
+  init            -> init_wiki.py
+  clip            -> clip.py
+  inbox           -> build_inbox.py
+  batch-clip      -> batch_clip.py
+  batch-ingest    -> batch_ingest.py
+  convert         -> convert_source.py
+  ingest          -> ingest.py
+  ask             -> ask.py
+  correct         -> correct.py
+  query           -> query_wiki.py
+  digest          -> digest.py
+  crystallize     -> crystallize.py
+  rebuild-index   -> rebuild_index.py
+  lint            -> lint_wiki.py
+  graph           -> build_graph.py
+  graph-report    -> graph_report.py
+  entity-merge-review -> entity_merge_review.py
+  entity-merge-apply -> entity_merge_apply.py
+  viewer          -> build_viewer.py
+  serve           -> serve_outputs.py
+  health          -> health.py
+  status          -> status.py
+  doctor          -> doctor.py
+
+Examples:
+  python scripts/wikihub_full bootstrap
+  python scripts/wikihub_full init --root /path/to/my-wiki --title "My Wiki"
+  python scripts/wikihub_full clip --root /path/to/my-wiki --url "https://example.com/article"
+  python scripts/wikihub_full inbox --root /path/to/my-wiki
+  python scripts/wikihub_full batch-clip --root /path/to/my-wiki --source-dir /path/to/imports --dry-run
+  python scripts/wikihub_full batch-ingest --root /path/to/my-wiki --quality ready --dry-run
+  python scripts/wikihub_full graph-report --root /path/to/my-wiki
+  python scripts/wikihub_full entity-merge-review --root /path/to/my-wiki
+  python scripts/wikihub_full entity-merge-apply --root /path/to/my-wiki --identity-key openclaw --canonical wiki/entities/openclaw.md
+  python scripts/wikihub_full serve --root /path/to/my-wiki
+  python scripts/wikihub_full health --root /path/to/my-wiki
+  python scripts/wikihub_full status --root /path/to/my-wiki
+  python scripts/wikihub_full convert --source /path/to/file.pdf --output-file /path/to/file.md
+  python scripts/wikihub_full ingest --root /path/to/my-wiki --source /path/to/file.md --topic "AI Memory"
+  python scripts/wikihub_full ask --root /path/to/my-wiki --question "What did we already conclude about AI memory?"
+  python scripts/wikihub_full correct --root /path/to/my-wiki --mistake "Confused context_length and max_tokens" --fix "Treat them as separate limits"
+  python scripts/wikihub_full doctor --repo-root .
+"""
+
+
+def ensure_runtime(command: str) -> None:
+    if os.environ.get("WIKIHUB_SKIP_BOOTSTRAP") == "1":
+        return
+    if command in HELP_COMMANDS or command == "bootstrap":
+        return
+    subprocess.run(
+        [SYSTEM_PYTHON, str(SCRIPT_DIR / "bootstrap_runtime.py"), "--repo-root", str(REPO_ROOT), "--quiet"],
+        check=True,
+    )
+
+
+def runtime_python() -> str:
+    candidate = venv_python(REPO_ROOT)
+    if candidate.exists():
+        return str(candidate)
+    return SYSTEM_PYTHON
+
+
+def dispatch(command: str, argv: list[str]) -> int:
+    if command in HELP_COMMANDS:
+        print(usage())
+        return 0
+    script_name = COMMAND_TO_SCRIPT.get(command)
+    if not script_name:
+        print(f"Unknown command: {command}", file=sys.stderr)
+        print(usage(), file=sys.stderr)
+        return 1
+    ensure_runtime(command)
+    python_bin = SYSTEM_PYTHON if command == "bootstrap" else runtime_python()
+    command_line = [python_bin, str(SCRIPT_DIR / script_name)]
+    if command == "bootstrap":
+        command_line.extend(["--repo-root", str(REPO_ROOT)])
+    command_line.extend(argv)
+    completed = subprocess.run(command_line)
+    return completed.returncode
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    if not args:
+        print(usage(), file=sys.stderr)
+        return 1
+    command, remaining = args[0], args[1:]
+    return dispatch(command, remaining)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
