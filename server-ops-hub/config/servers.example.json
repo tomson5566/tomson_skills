@@ -1,0 +1,126 @@
+{
+  "schema_version": 2,
+  "description": "server-ops-hub 服务器资产档案库（示例数据）。正式使用时复制本文件为 servers.json 并用 server-add.sh 接入真实服务器",
+  "settings": {
+    "report_keep_days": 30
+  },
+  "updated_at": "2026-01-01T00:00:00+08:00",
+  "servers": [
+    {
+      "host": "192.168.1.10",
+      "port": 22,
+      "category": "数据库",
+      "tags": ["内网", "rhel", "postgresql"],
+      "auth": {
+        "type": "key",
+        "username": "root",
+        "key_name": "agent-box",
+        "key_names": ["agent-box", "laptop"],
+        "password": "",
+        "root_password": "",
+        "become_root": false
+      },
+      "watch_services": [],
+      "inspection": {
+        "last_check": "2026-01-01 10:00:00",
+        "hostname": "db-node-01",
+        "os": "Rocky Linux 9.4",
+        "kernel": "5.14.0",
+        "listening_ports": [
+          {"port": 22, "proto": "tcp", "process": "sshd"},
+          {"port": 5432, "proto": "tcp", "process": "postgres"}
+        ],
+        "services": [
+          {
+            "name": "postgresql-15",
+            "path": "/usr/pgsql-15",
+            "config": "/data/pg_data/postgresql.conf",
+            "port": 5432,
+            "start_cmd": "sudo -u postgres /usr/pgsql-15/bin/pg_ctl -D /data/pg_data start",
+            "status": "running",
+            "notes": "",
+            "updated_at": "2026-01-01 10:00:00"
+          }
+        ],
+        "databases": [
+          {
+            "name": "pg-main",
+            "type": "postgresql",
+            "version": "15.10",
+            "port": 5432,
+            "data_dir": "/data/pg_data",
+            "config": "/data/pg_data/postgresql.conf",
+            "credentials": [
+              {"username": "postgres", "password": "<数据库密码>", "purpose": "DBA 账号", "updated_at": "2026-01-01 10:00:00"}
+            ],
+            "notes": "pg_hba.conf 本机 trust",
+            "updated_at": "2026-01-01 10:00:00"
+          }
+        ],
+        "middleware": [
+          {
+            "name": "redis",
+            "version": "7.2",
+            "port": 6379,
+            "config": "/etc/redis.conf",
+            "credentials": [],
+            "notes": "仅内网监听",
+            "updated_at": "2026-01-01 10:00:00"
+          }
+        ],
+        "dev_ports": [
+          {"port": 3000, "service": "前端 dev server", "notes": "", "updated_at": "2026-01-01 10:00:00"}
+        ],
+        "accounts": [
+          {"username": "deploy", "password": "<部署账号密码>", "purpose": "CI 部署账号", "updated_at": "2026-01-01 10:00:00"}
+        ],
+        "notes": [
+          {"time": "2026-01-01 10:00:00", "text": "示例条目：/ 分区曾告警，已清理"}
+        ]
+      },
+      "created_at": "2026-01-01T00:00:00+08:00",
+      "updated_at": "2026-01-01T00:00:00+08:00"
+    },
+    {
+      "host": "203.0.113.10",
+      "port": 22002,
+      "category": "云服务器",
+      "tags": ["公网", "web"],
+      "auth": {
+        "type": "password",
+        "username": "ops",
+        "key_name": "",
+        "key_names": [],
+        "password": "<SSH登录密码>",
+        "root_password": "<root提权密码>",
+        "become_root": true
+      },
+      "watch_services": [
+        {
+          "name": "myapp",
+          "match": "myapp serve",
+          "start_cmd": "systemctl start myapp",
+          "auto_restart": false,
+          "updated_at": "2026-01-01 10:00:00"
+        }
+      ],
+      "inspection": {
+        "last_check": "",
+        "hostname": "",
+        "os": "",
+        "kernel": "",
+        "listening_ports": [],
+        "services": [],
+        "databases": [],
+        "middleware": [],
+        "dev_ports": [],
+        "accounts": [],
+        "notes": [
+          {"time": "2026-01-01 10:00:00", "text": "示例条目：密码认证主机，建议执行 key-manage.sh deploy 切换免密"}
+        ]
+      },
+      "created_at": "2026-01-01T00:00:00+08:00",
+      "updated_at": "2026-01-01T00:00:00+08:00"
+    }
+  ]
+}
