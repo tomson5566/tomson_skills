@@ -1,0 +1,14 @@
+services:
+  scanner:
+    build: .
+    container_name: nas-threat-scanner
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      HOSTNAME: 0.0.0.0
+      COZE_PROJECT_ENV: PROD
+    # 如需「本机目录模式」扫描已挂载的 NAS 共享，把挂载点只读映射进容器：
+    # volumes:
+    #   - /mnt/nas:/data:ro
+    restart: unless-stopped
