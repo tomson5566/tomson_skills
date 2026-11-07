@@ -1,0 +1,21 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "total": 128,
+    "page_no": 1,
+    "page_size": 50,
+    "items": [
+      {
+        "cust_id": "C0000123456",
+        "cust_name": "示例客户",
+        "cust_level": "B",
+        "reg_capital": 1000000.0000,
+        "stat_date": "2026-11-01"
+      }
+    ]
+  }
+}
+// 出参统一包裹 code/message/data/total。
+// 错误码段：0 成功；100xx 参数错误；200xx 业务错误；300xx 权限错误；400xx 限流与配额；500xx 系统异常。
+// 错误信息不得包含 SQL、堆栈、表名等内部细节，须指明"哪里错了、怎么改"。
